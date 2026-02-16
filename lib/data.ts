@@ -1,23 +1,8 @@
 import db from './db';
 
-export interface Store {
-    id: number;
-    name: string;
-    open_time_weekday: string;
-    close_time_weekday: string;
-    open_time_saturday?: string;
-    close_time_saturday?: string;
-    open_time_sunday?: string;
-    close_time_sunday?: string;
-}
 
-export interface Employee {
-    id: number;
-    name: string;
-    store_id: number;
-    weekly_hours: number;
-    rules: string;
-}
+export * from './types';
+import { Store, Employee, Schedule } from './types';
 
 export function getAllStores(): Store[] {
     // @ts-ignore
@@ -37,4 +22,18 @@ export function getAllEmployees(): Employee[] {
 export function getStoreById(id: number): Store | undefined {
     // @ts-ignore
     return db.prepare('SELECT * FROM stores WHERE id = ?').get(id);
+}
+
+export function getSchedulesByDate(date: string): Schedule[] {
+    // @ts-ignore
+    return db.prepare('SELECT * FROM schedules WHERE date = ?').all(date);
+}
+
+export function createSchedule(schedule: Omit<Schedule, 'id'>): void {
+    // @ts-ignore
+    const stmt = db.prepare(`
+        INSERT INTO schedules (employee_id, store_id, date, start_time, end_time, type)
+        VALUES (@employee_id, @store_id, @date, @start_time, @end_time, @type)
+    `);
+    stmt.run(schedule);
 }

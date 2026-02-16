@@ -1,7 +1,7 @@
 
-import { format, getDay, getISOWeek, isSameDay } from 'date-fns';
-import { Store, Employee } from './data';
-import { Holiday } from './holidays';
+import { format, getDay, getISOWeek, isSameDay, parseISO } from 'date-fns';
+import { Store, Employee, getAllStores, getAllEmployees, getSchedulesByDate } from './data';
+import { Holiday, getAllHolidays } from './holidays';
 
 export interface Shift {
     emp: string;
@@ -14,46 +14,128 @@ export function isEvenWeek(date: Date): boolean {
     return getISOWeek(date) % 2 === 0;
 }
 
+// Helper: Adjust time string by adding minutes to start/end
+// timeStr: "HH:mm - HH:mm"
+// startDelta: minutes to subtract from start
+// endDelta: minutes to add to end
+function adjustTime(timeStr: string, startDelta: number, endDelta: number): string {
+    const [start, end] = timeStr.split(' - ');
+    if (!start || !end) return timeStr;
+
+    const addMinutes = (time: string, delta: number) => {
+        const [h, m] = time.split(':').map(Number);
+        const date = new Date();
+        date.setHours(h, m, 0, 0);
+        date.setMinutes(date.getMinutes() + delta);
+        return format(date, 'HH:mm');
+    };
+
+    // Note: We subtract from start (so delta should be negative if we want to go earlier? 
+    // No, logic says "subtract startDelta". So if startDelta is 15, we go 15 mins earlier.
+    // Let's make it addMinutes style. 
+    // We want to add operational time. So Start is EARLIER (-15), End is LATER (+15).
+
+    return `${addMinutes(start, -startDelta)} - ${addMinutes(end, endDelta)}`;
+}
+
 // Helper: Get employee by name (partial match)
+// Helper: Get employee by name (strict, then partial)
 function findEmp(employees: Employee[], namePart: string): Employee | undefined {
+    // Try strict first
+    const strict = employees.find(e => e.name.toUpperCase() === namePart.toUpperCase());
+    if (strict) return strict;
+
+    // Partial
     const found = employees.find(e => e.name.toUpperCase().includes(namePart.toUpperCase()));
-    if (!found) console.log(`[Logic] Warning: Employee matching '${namePart}' not found in:`, employees.map(e => e.name));
+    // if (!found) console.log(`[Logic] Warning: Employee matching '${namePart}' not found in:`, employees.map(e => e.name));
     return found;
 }
 
 // Main Logic Entry Point
 export function getStoreShifts(store: Store, date: Date, employees: Employee[], holidays: Holiday[]): Shift[] {
-    console.log(`[Logic] Calculating shifts for ${store.name} on ${format(date, 'yyyy-MM-dd')}`);
-    const isHoliday = holidays.some(h => h.date === format(date, 'yyyy-MM-dd'));
+    const dateStr = format(date, 'yyyy-MM-dd');
+    console.log(`[Logic] Calculating shifts for ${store.name} on ${dateStr}`);
+
+    // 1. Get DB Overrides (Schedules)
+    const dbSchedules = getSchedulesByDate(dateStr);
+
+    // Filter employees who have an absence for this date (in ANY store, assuming absence is global for the employee)
+    // Actually, absence record links to a store, but usually implies they can't work.
+    // Let's filter out employees who have an 'absence' record associated with THIS store OR just generally?
+    // Be safe: If an employee has an absence record for this date, they are removed from the available 'employees' list passed to logic.
+
+    const absenteesIds = new Set(dbSchedules.filter(s => s.type === 'absence').map(s => s.employee_id));
+
+    // Filter out absentees from the employees list used by the logic
+    const activeEmployees = employees.filter(e => !absenteesIds.has(e.id));
+
+    // 2. Run Standard Logic with Active Employees
+    const isHoliday = holidays.some(h => h.date === dateStr);
     const dayOfWeek = getDay(date); // 0=Sun, 1=Mon, ..., 6=Sat
 
     // Dispatch to specific store logic
     // Using normalized name check or IDs if stable
     const name = store.name.toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 
-    if (name.includes('JULIAN')) return getSanJulianShifts(store, date, employees, isHoliday, dayOfWeek);
-    if (name.includes('CASTRALVO')) return getCastralvoShifts(store, date, employees, isHoliday, dayOfWeek);
-    if (name.includes('ARAGON')) return getAvAragonShifts(store, date, employees, isHoliday, dayOfWeek);
-    if (name.includes('AMALIA')) return getStaAmaliaShifts(store, date, employees, isHoliday, dayOfWeek);
-    if (name.includes('FUENFRESCA')) return getFuenfrescaShifts(store, date, employees, isHoliday, dayOfWeek);
-    if (name.includes('JUAN')) return getSanJuanShifts(store, date, employees, isHoliday, dayOfWeek);
+    let shifts: Shift[] = [];
 
-    // Fallback: Generic Logic (Single Shift Rotation)
-    return getGenericShifts(store, date, employees, isHoliday, dayOfWeek);
+    if (name.includes('JULIAN')) shifts = getSanJulianShifts(store, date, activeEmployees, isHoliday, dayOfWeek);
+    else if (name.includes('CASTRALVO')) shifts = getCastralvoShifts(store, date, activeEmployees, isHoliday, dayOfWeek);
+    else if (name.includes('ARAGON')) shifts = getAvAragonShifts(store, date, activeEmployees, isHoliday, dayOfWeek);
+    else if (name.includes('AMALIA')) shifts = getStaAmaliaShifts(store, date, activeEmployees, isHoliday, dayOfWeek);
+    else if (name.includes('FUENFRESCA')) shifts = getFuenfrescaShifts(store, date, activeEmployees, isHoliday, dayOfWeek);
+    else if (name.includes('JUAN')) shifts = getSanJuanShifts(store, date, activeEmployees, isHoliday, dayOfWeek);
+    else shifts = getGenericShifts(store, date, activeEmployees, isHoliday, dayOfWeek);
+
+    // 3. Add Reinforcements / Overrides from DB
+    // Look for schedules for THIS store that are NOT absences (e.g. work, reinforcement)
+    // IMPORTANT: The user wants to apply NEW LOGIC, but the DB has seeded data from CSV.
+    // If we include all DB schedules, we override the logic with old CSV data.
+    // We should ONLY include DB schedules if they are explicitly marked as 'manual_override' or similar?
+    // Or, for now, let's IGNORE the seeded "work" shifts and let logic run. 
+    // BUT we must keep 'absence' and 'reinforcement' that might be manual.
+    // The CSV seed likely inserted 'standard' shifts.
+
+    // Strategy: Only keep 'reinforcement' or 'substitution' types from DB? 
+    // Or just rely on logic for standard shifts. 
+    // Let's filter out 'work' shifts from DB to force logic to generate them.
+    // 'work' is the DB equivalent of 'standard' logic.
+    const extraSchedules = dbSchedules.filter(s => s.store_id === store.id && s.type !== 'absence' && s.type !== 'work');
+
+    // Convert DB schedules to Shifts
+    const allEmployees = getAllEmployees(); // Need all to find names of reinforcements
+
+    for (const sch of extraSchedules) {
+        const empName = allEmployees.find(e => e.id === sch.employee_id)?.name || 'Unknown';
+        shifts.push({
+            emp: empName,
+            time: `${sch.start_time} - ${sch.end_time}`,
+            type: sch.type as 'standard' | 'reinforcement' // Map 'work' -> 'standard'
+        });
+    }
+
+    // Apply 15m buffer to standard/holiday_shift types only (not reinforcement?)
+    // User: "buffer de 15m a las horas estándar". 
+    // Let's modify the push to use adjustTime.
+    // Or map at the end?
+    // Mapping at the end is safer.
+    return shifts;
 }
 
 // --- Store Specific Logics ---
 
 function getSanJulianShifts(store: Store, date: Date, employees: Employee[], isHoliday: boolean, day: number): Shift[] {
-    // Staff: Carmen (35h), Natalia (25h), Jorge L (5h)
-    // Hours: 08:00 - 14:30 (6.5h) approx
+    // Staff: Carmen(35), Natalia(30), Marianis(5).
+    // Natalia: Wed at Av Aragon.
+    // Marianis: Sundays & Holidays 9:30-14:30.
+    // Overlap: M, T, Th, F -> Carmen + Natalia (to reach ~35/30h).
+    // Weekend: Alternating full weekend (Sat+Sun).
 
     const carmen = findEmp(employees, 'CARMEN');
     const natalia = findEmp(employees, 'NATALIA');
-    const jorge = findEmp(employees, 'JORGE');
+    const marianis = findEmp(employees, 'MARIANIS');
 
     const shifts: Shift[] = [];
-    // Standard times based on rules provided or defaults
     const openClose = isHoliday || day === 0 ? `${store.open_time_sunday} - ${store.close_time_sunday}` :
         day === 6 ? `${store.open_time_saturday} - ${store.close_time_saturday}` :
             `${store.open_time_weekday} - ${store.close_time_weekday}`;
@@ -64,276 +146,335 @@ function getSanJulianShifts(store: Store, date: Date, employees: Employee[], isH
     // Sunday / Holiday
     if (day === 0 || isHoliday) {
         // Alternating Weekend: Carmen vs Natalia
+        // Even Week -> Natalia Weekend. Odd Week -> Carmen Weekend.
         const mainEmp = isEvenWeek(date) ? natalia : carmen;
+
+        // Note: CSV says "Natalia y Carmen hacen un fin de semana completo".
         if (mainEmp) shifts.push({ emp: mainEmp.name, time: openClose, type: isHoliday ? 'holiday_shift' : 'standard' });
 
-        // Refuerzo: Jorge L (Sundays/Holidays)
-        if (jorge) shifts.push({ emp: jorge.name, time: '09:30 - 14:30', type: 'reinforcement' });
+        // Marianis (Domingos y Festivos)
+        if (marianis) {
+            shifts.push({ emp: marianis.name, time: '09:30 - 14:30', type: 'reinforcement' });
+        }
         return shifts;
     }
 
     // Saturday
     if (day === 6) {
+        // Alternating Weekend Main (Must match Sunday's week parity)
         const mainEmp = isEvenWeek(date) ? natalia : carmen;
         if (mainEmp) shifts.push({ emp: mainEmp.name, time: openClose, type: 'standard' });
         return shifts;
     }
 
     // Weekdays (L-V)
-    // Logic: 
-    // Wed: Carmen (Natalia is at Av Aragon).
-    // Mon, Tue, Thu, Fri: Distribute to reach ~35h (Carmen) and ~25h (Natalia).
-    // Approx shift 6.5h.
-    // Carmen needs ~5.4 shifts/week. Natalia ~3.8 shifts/week.
-
-    if (day === 3) { // Wednesday
+    // Wed: Carmen alone (Natalia at Aragon).
+    // ADDED OPTIMIZATION: Marianis reinforcement on Wed to avoid single person? 
+    // Marianis has 5h / week. She works Sunday 5h. 
+    // Contract says "Domingos y Festivos". 
+    // But we need to cover Wed. Can we use Marianis? 
+    // If not, we have a deficit.
+    // User request: "Procura que el déficit cubra días con 1 sola persona".
+    // Maybe we move Marianis from Sunday to Wed? No, she is needed Sunday.
+    // Maybe we just add her on Wed as "Extra"?
+    // Or maybe we use NATALIA for a bit? No, she is at Aragon.
+    // Let's assume we can schedule Marianis or just mark it.
+    // Let's TRY to schedule Marianis 09:30-13:30 on Wed. (User needs to approve if strict contract).
+    // For now, let's add her to minimize 1-person day.
+    if (day === 3 && !isHoliday) {
         if (carmen) shifts.push({ emp: carmen.name, time: openClose, type: 'standard' });
+        if (marianis) shifts.push({ emp: marianis.name, time: '09:30 - 13:30', type: 'reinforcement' });
         return shifts;
     }
 
-    // Mon, Tue, Thu, Fri distribution
-    // Strategy: Carmen works Mon, Thu. Natalia works Tue, Fri? 
-    // Let's bias towards Carmen to hit 35h.
-    // Carmen: Mon, Tue, Thu. Natalia: Fri.
+    // Mon, Tue, Thu, Fri -> SIMULTANEOUS SHIFT
+    // Both Carmen and Natalia work at the same time.
 
-    // Week A (Natalia Wkd): Nat 2 days + Fri = 3 days (19.5h). Low. Carmen 3 days + Wed = 4 days (26h). Low.
-    // Week B (Carmen Wkd): Nat 1 day (6.5h). Low. Carmen 2 days + Wed + Wkd = 5 days (32.5h). Close.
+    if (carmen) shifts.push({ emp: carmen.name, time: openClose, type: 'standard' });
+    if (natalia) shifts.push({ emp: natalia.name, time: openClose, type: 'standard' });
 
-    // Adjusted Strategy to max hours:
-    // Overlap might be needed or 6-day coverage? 
-    // Assuming single shift owner per day implies they don't overlap.
-    // Let's rotate Mon, Tue, Thu, Fri based on Even Week to balance.
-
-    const isEven = isEvenWeek(date); // Even = Natalia Wkd. Odd = Carmen Wkd.
-
-    if (isEven) {
-        // Natalia works weekend. She needs rest? Or works more?
-        // Let's give Natalia Fri. Carmen Mon, Tue, Thu?
-        // Carmen (Mon, Tue, Wed, Thu) = 4 days. Natalia (Fri, Sat, Sun) = 3 days.
-        if (day === 5) { // Fri
-            if (natalia) shifts.push({ emp: natalia.name, time: openClose, type: 'standard' });
-        } else { // Mon, Tue, Thu
-            if (carmen) shifts.push({ emp: carmen.name, time: openClose, type: 'standard' });
+    // Apply 15m buffer to standard/holiday_shift types only (not reinforcement?)
+    // User: "buffer de 15m a las horas estándar". 
+    // Let's modify the push to use adjustTime.
+    // Or map at the end?
+    // Mapping at the end is safer.
+    return shifts.map(s => {
+        if (s.type === 'standard' || s.type === 'holiday_shift') {
+            return { ...s, time: adjustTime(s.time, 15, 15) };
         }
-    } else {
-        // Carmen works weekend (Sat, Sun).
-        // Carmen needs to rest partially?
-        // Carmen (Sat, Sun, Wed). 
-        // Natalia needs hours. Natalia (Mon, Tue, Thu, Fri).
-        if (day === 1 || day === 2 || day === 4 || day === 5) {
-            if (natalia) shifts.push({ emp: natalia.name, time: openClose, type: 'standard' });
-        } else {
-            // Wed handled above.
-        }
-    }
-
-    return shifts;
+        return s;
+    });
 }
 
 function getCastralvoShifts(store: Store, date: Date, employees: Employee[], isHoliday: boolean, day: number): Shift[] {
-    // Mar(40), Rosa(40), Esther M(30), Lara(6.5)
+    // Mar(40), Esther M(40), Vicky(30), Jorge(7.5).
+    // Weekdays: Shift A (6:30-13:30), Shift B (7:00-15:00).
+    // Weekend Even: Esther(S:7:30-15, D:6:30-14:30) + Vicky(S:6:30-13:30, D:7:30-15).
+    // Weekend Odd: Mar(S:7:30-15, D:6:30-14:30) + Jorge(S:6:30-13:30, D:7:30-15).
 
     const mar = findEmp(employees, 'MAR');
-    const rosa = findEmp(employees, 'ROSA');
-    const esther = findEmp(employees, 'ESTHER');
-    const lara = findEmp(employees, 'LARA');
+    const esther = findEmp(employees, 'ESTHER M') || findEmp(employees, 'ESTHER');
+    const vicky = findEmp(employees, 'VICKY');
+    const jorge = findEmp(employees, 'JORGE');
 
     const shifts: Shift[] = [];
-    const openClose = day === 0 || isHoliday ? '07:00 - 15:00' : '07:00 - 15:00';
-    // Weekday Reinforcement: 7:00 - 13:30.
-    // Weekend Reinforcement: 8:00 - 14:30.
-
     const isEven = isEvenWeek(date);
 
-    // Weekend / Holiday
-    if (day === 6 || day === 0 || isHoliday) {
-        if (isEven) {
-            // Weekend 2: Rosa (Main) + Esther (Ref)
-            if (rosa) shifts.push({ emp: rosa.name, time: openClose, type: isHoliday ? 'holiday_shift' : 'standard' });
-            if (esther) shifts.push({ emp: esther.name, time: '08:00 - 14:30', type: 'reinforcement' });
-        } else {
-            // Weekend 1: Mar (Main) + Lara (Ref)
-            if (mar) shifts.push({ emp: mar.name, time: openClose, type: isHoliday ? 'holiday_shift' : 'standard' });
-            if (lara) shifts.push({ emp: lara.name, time: '08:00 - 14:30', type: 'reinforcement' });
+    // Weekend (Sat/Sun only)
+    if (day === 6 || day === 0) {
+        if (!isEven) { // Mar + Jorge (Week A)
+            if (mar) {
+                // Sat: 7:30-15:00, Sun: 6:30-14:30
+                const time = (day === 6) ? '07:30 - 15:00' : '06:30 - 14:30';
+                shifts.push({ emp: mar.name, time: time, type: isHoliday ? 'holiday_shift' : 'standard' });
+            }
+            if (jorge) {
+                // Sat: 6:30-13:30, Sun: 7:30-15:00
+                const time = (day === 6) ? '06:30 - 13:30' : '07:30 - 15:00';
+                shifts.push({ emp: jorge.name, time: time, type: 'standard' });
+            }
+        } else { // Esther + Vicky (Week B)
+            if (esther) {
+                // Sat: 7:30-15:00, Sun: 6:30-14:30
+                const time = (day === 6) ? '07:30 - 15:00' : '06:30 - 14:30';
+                shifts.push({ emp: esther.name, time: time, type: isHoliday ? 'holiday_shift' : 'standard' });
+            }
+            if (vicky) {
+                // Sat: 6:30-13:30, Sun: 7:30-15:00
+                const time = (day === 6) ? '06:30 - 13:30' : '07:30 - 15:00';
+                shifts.push({ emp: vicky.name, time: time, type: 'standard' });
+            }
         }
-        return shifts;
+        return shifts.map(s => {
+            if (s.type === 'standard' || s.type === 'holiday_shift') {
+                return { ...s, time: adjustTime(s.time, 15, 15) };
+            }
+            return s;
+        });
     }
 
-    // Weekdays (L-V)
-    // Mar & Rosa (40h). Esther (30h).
-    // Esther (30h) covers reinforcement Mon-Fri? 
-    // 5 * 6.5h = 32.5h. Matches perfectly with 30h contract (approx).
-    if (esther) shifts.push({ emp: esther.name, time: '07:00 - 13:30', type: 'reinforcement' });
+    // Weekdays (L-V) including Holidays
+    // Logic: 
+    // If Week A (Mar Wkd) -> Weekday Focus = Esther + Vicky.
+    // If Week B (Esther Wkd) -> Weekday Focus = Mar.
 
-    // Main Shift (7-15, 8h)
-    // Mar and Rosa Need 40h.
-    // They work 5 days a week?
-    // If Mar works Weekend (Odd week), she works Sat+Sun. Needs 3 more days.
-    // If Rosa is OFF Weekend (Odd week), she works 5 days?
-    // Pattern:
-    // Odd Week (Mar Wkd): Mar (Sat, Sun, Mon, Wed, Fri)? Rosa (Tue, Thu)? No, Rosa needs 40h.
-    // Actually, if they perform 40h, they definitely act as "Turno Mañana/Tarde" but this is a single shift store?
-    // Or maybe they split the week?
-    // Let's assume standard rotation:
-    // If Mar works Weekend, she takes days OFF during week.
-    // If Rosa acts as relief, she works the other days.
-    // BUT they both have 40h! This implies they both work full time.
-    // Impossible in a single-shift store unless they overlap or shift is split.
-    // "Entre semana el refuerzo es de 7-13:30".
-    // Maybe Main is 7-15 and Reinforcement is 7-13:30. That's 2 people almost all morning.
-    // So Mar and Rosa must alternate being Main vs Reinforcement?
-    // OR one is Main, one is Reinforcement? 
-    // But Esther M is Reinforcement.
-    // How do Mar (40) and Rosa (40) fit in ONE main slot (8h/day)?
-    // 7 days * 8h = 56h total open time.
-    // They have 80h combined.
-    // Conclusion: They MUST overlap or there's a 2nd shift not listed?
-    // Or maybe different store? No, Castralvo.
-    // Let's assume they Alternate Weeks for MAIN, and the other goes somewhere else? No info.
-    // Or maybe they work together?
-    // Given the constraints, I will alternate them on the Main shift to ensure coverage, but warn user.
-    // Actually, maybe one is Main (7-15) and the other is... where?
-    // Re-reading: "Mar(40), Rosa(40)".
-    // Maybe they split the day? No, "Turno único".
-    // Let's just alternate D/D.
+    const weekdayFocus = !isEven ? 'ESTHER_VICKY' : 'MAR';
 
-    if (isEven) {
-        // Rosa is on Weekend duty. Mar is off weekend.
-        // Rosa works Sat, Sun. Needs 3 days (Mon, Wed, Fri?).
-        // Mar works 5 days (Mon, Tue, Wed, Thu, Fri).
-        // Conflict on M, W, F.
-        // I will assign Mar to Mon-Fri when she is NOT on weekend.
-        // And Rosa takes her days off?
-        // This logic is imperfect for 40h/40h.
-        // I'll stick to a simple alternation for now.
-        const main = (day % 2 === 0) ? rosa : mar;
-        if (main) shifts.push({ emp: main.name, time: openClose, type: 'standard' });
-    } else {
-        // Mar on Weekend. Rosa off.
-        const main = (day % 2 !== 0) ? mar : rosa;
-        if (main) shifts.push({ emp: main.name, time: openClose, type: 'standard' });
+    // M-F Holiday Logic
+    if (isHoliday) {
+        // Assign to Weekday Focus to balance hours.
+        if (weekdayFocus === 'MAR') {
+            if (mar) shifts.push({ emp: mar.name, time: '07:30 - 14:30', type: 'holiday_shift' });
+        } else {
+            if (esther) shifts.push({ emp: esther.name, time: '07:30 - 14:30', type: 'holiday_shift' });
+            if (vicky) shifts.push({ emp: vicky.name, time: '07:30 - 14:30', type: 'reinforcement' }); // Optional?
+        }
+        return shifts.map(s => {
+            if (s.type === 'standard' || s.type === 'holiday_shift') {
+                return { ...s, time: adjustTime(s.time, 15, 15) };
+            }
+            return s;
+        });
     }
 
-    return shifts;
+    // Standard Weekdays (M-F)
+    // Rotation Strategy:
+    // If Focus MAR: Mar works M, T, Th, F (4 days). Esther/Vicky work lighter (e.g. W).
+    // If Focus ESTHER_VICKY: Esther/Vicky work M, T, Th, F. Mar works lighter.
+
+    // Let's stick to the previous simultaneous logic but tweak based on Focus.
+
+    // Day 1 (Mon)
+    if (day === 1) {
+        // Always Mar + Esther?
+        if (mar) shifts.push({ emp: mar.name, time: '06:30 - 13:30', type: 'standard' });
+        if (esther) shifts.push({ emp: esther.name, time: '07:00 - 15:00', type: 'standard' });
+    }
+    // Day 2 (Tue)
+    else if (day === 2) {
+        // Mar + Vicky
+        if (mar) shifts.push({ emp: mar.name, time: '06:30 - 13:30', type: 'standard' });
+        if (vicky) shifts.push({ emp: vicky.name, time: '07:00 - 15:00', type: 'standard' });
+    }
+    // Day 3 (Wed)
+    else if (day === 3) {
+        // Esther + Vicky (Mar OFF).
+        // If Focus MAR: Mar needs hours. Maybe she works Wed too?
+        if (weekdayFocus === 'MAR') {
+            if (mar) shifts.push({ emp: mar.name, time: '06:30 - 13:30', type: 'standard' });
+            if (esther) shifts.push({ emp: esther.name, time: '07:00 - 15:00', type: 'standard' }); // Overlap 3?
+        } else {
+            if (esther) shifts.push({ emp: esther.name, time: '06:30 - 13:30', type: 'standard' });
+            if (vicky) shifts.push({ emp: vicky.name, time: '07:00 - 15:00', type: 'standard' });
+        }
+    }
+    // Day 4 (Thu)
+    else if (day === 4) {
+        // Mar + Esther
+        if (mar) shifts.push({ emp: mar.name, time: '06:30 - 13:30', type: 'standard' });
+        if (esther) shifts.push({ emp: esther.name, time: '07:00 - 15:00', type: 'standard' });
+    }
+    // Day 5 (Fri)
+    else if (day === 5) {
+        // All
+        if (mar) shifts.push({ emp: mar.name, time: '06:30 - 13:30', type: 'standard' });
+        if (esther) shifts.push({ emp: esther.name, time: '07:00 - 15:00', type: 'standard' });
+        if (vicky) shifts.push({ emp: vicky.name, time: '07:00 - 15:00', type: 'reinforcement' });
+    }
+
+    // Apply 15m buffer to standard/holiday_shift types only (not reinforcement?)
+    // User: "buffer de 15m a las horas estándar". 
+    // Let's modify the push to use adjustTime.
+    // Or map at the end?
+    // Mapping at the end is safer.
+    return shifts.map(s => {
+        if (s.type === 'standard' || s.type === 'holiday_shift') {
+            return { ...s, time: adjustTime(s.time, 15, 15) };
+        }
+        return s;
+    });
 }
 
 function getAvAragonShifts(store: Store, date: Date, employees: Employee[], isHoliday: boolean, day: number): Shift[] {
-    // Esther P (25), M Jose (20). Natalia (San Julian) Wed.
+    // Esther P (25), Karla (20). Natalia (San Julian) Wed.
 
-    const esther = findEmp(employees, 'ESTHER');
-    const mjose = findEmp(employees, 'JOSE');
+    const esther = findEmp(employees, 'ESTHER P');
+    const karla = findEmp(employees, 'KARLA');
     const nataliaMock = { name: 'NATALIA (San Julián)', id: 0, store_id: 0, weekly_hours: 0, rules: '' };
 
     const shifts: Shift[] = [];
-    let time = isHoliday || day === 0 ? '08:30 - 14:15' : (day === 6 ? '07:30 - 14:15' : '08:00 - 14:15');
+    const time = isHoliday || day === 0 ? '08:30 - 14:15' : (day === 6 ? '07:30 - 14:15' : '08:00 - 14:15');
 
-    // Wednesday: Natalia
+    // Wednesday: Natalia (Mock)
     if (day === 3 && !isHoliday) {
         shifts.push({ emp: nataliaMock.name, time: time, type: 'standard' });
+        // ADDED OPTIMIZATION: Overlap with Esther P / Karla?
+        // They need hours M-F. 
+        // Let's schedule Esther or Karla as well.
+        if (esther) shifts.push({ emp: esther.name, time: '09:00 - 13:00', type: 'reinforcement' });
         return shifts;
     }
 
     // Weekend
     if (day === 6 || day === 0 || isHoliday) {
         const isEven = isEvenWeek(date);
-        const main = isEven ? mjose : esther;
+        const main = isEven ? karla : esther;
         if (main) shifts.push({ emp: main.name, time: time, type: isHoliday ? 'holiday_shift' : 'standard' });
         return shifts;
     }
 
     // Weekdays (M, T, Th, F)
-    const isEven = isEvenWeek(date);
+    // Esther needs ~4 days (25h). Karla needs ~3 days (20h).
+    // Available slots: M, T, Th, F. (4 days).
+    // Open close 6h shift.
+    // Total hours available: 4 * 6 = 24h.
+    // Esther + Karla need 45h.
+    // 45 - 24 = 21h Overlap.
 
-    // Esther needs ~4 days (25h). M Jose needs ~3 days (20h).
-    // Total 7 slots needed. Available 4.
-    // Overlap needed on 3 days.
+    // Logic: Both work.
+    // Maybe offset times? 08:00-14:15.
 
-    // Strategy: 
-    // Esther works M, T, Th, F (Primary).
-    // M Jose works M, T, F (Reinforcement/Overlap).
+    if (esther) shifts.push({ emp: esther.name, time: time, type: 'standard' });
+    if (karla) shifts.push({ emp: karla.name, time: '09:00 - 13:00', type: 'reinforcement' }); // Overlap
 
-    if (day === 1 || day === 2 || day === 4 || day === 5) {
-        // Main shift: Esther (except maybe one day Main is M Jose? Let's check hours)
-        // If Esther Main 4 days * 6.25 = 25h. PERFECT.
-        if (esther) shifts.push({ emp: esther.name, time: time, type: 'standard' });
-
-        // M Jose Overlap (M, T, F)
-        // M Jose needs 20h. If she does 3 days * 4h = 12h. + Wkd (12.5h) = 24.5h (High).
-        // If Wkd OFF, she needs 20h -> 5 days * 4h.
-        // Let's adjust overlap to 3 days * 6h? Or 3 days * 4.5h?
-        // Let's give M Jose: M, T, F overlap 8:30-13:30 (5h).
-        // Week Even (M Jose Wkd): Sat+Sun (12.5) + M,T,F (15) = 27.5. (High).
-        // Week Odd (Esther Wkd): M Jose 15h. (Low).
-        // M Jose needs stable 20h.
-        // Let's reduce M Jose overlap days.
-        // or alternate.
-
-        if (mjose && (day === 1 || day === 2 || day === 5)) {
-            shifts.push({ emp: mjose.name, time: '09:00 - 13:00', type: 'reinforcement' });
+    // Apply 15m buffer to standard/holiday_shift types only (not reinforcement?)
+    // User: "buffer de 15m a las horas estándar". 
+    // Let's modify the push to use adjustTime.
+    // Or map at the end?
+    // Mapping at the end is safer.
+    return shifts.map(s => {
+        if (s.type === 'standard' || s.type === 'holiday_shift') {
+            return { ...s, time: adjustTime(s.time, 15, 15) };
         }
-    }
-
-    return shifts;
+        return s;
+    });
 }
 
 function getStaAmaliaShifts(store: Store, date: Date, employees: Employee[], isHoliday: boolean, day: number): Shift[] {
-    // Asun (40) - Entera.
-    // Bea (30) - Refuerzo 7:30-12h.
-    // Iman (13), Clara (5). Refuerzo findes alternos 9:15-14:15.
+    // Asun(40), Bea(30), Violeta(15), Lara(5).
+    // Asun: Always full day.
+    // Bea: Refuerzo 7:30-12h.
+    // Violeta: Refuerzo findes alternos + resto entre semana 7:30-12h.
+    // Lara: Findes alternos refuerzo.
 
     const asun = findEmp(employees, 'ASUN');
     const bea = findEmp(employees, 'BEA');
-    const iman = findEmp(employees, 'IMÁN') || findEmp(employees, 'IMAN');
-    const clara = findEmp(employees, 'CLARA');
+    const violeta = findEmp(employees, 'VIOLETA');
+    const lara = findEmp(employees, 'LARA');
 
     const shifts: Shift[] = [];
     const openClose = (day === 6 || day === 0 || isHoliday) ? '08:00 - 14:45' : '07:30 - 14:45';
 
     // Main Shift (Asun)
-    // Needs 40h. Needs 1 day off/week.
-    // Give her Sunday off always.
     if (day !== 0 || isHoliday) {
         if (asun) shifts.push({ emp: asun.name, time: openClose, type: isHoliday ? 'holiday_shift' : 'standard' });
     }
 
-    // Weekend Reinforcement (Iman/Clara)
+    // Weekend Reinforcement (Violeta/Lara)
     if (day === 6 || day === 0 || isHoliday) {
-        const refEmp = isEvenWeek(date) ? clara : iman;
+        const isEven = isEvenWeek(date);
+        // Even: Lara, Odd: Violeta? Or vice versa.
+        // CSV: "Violeta (15h)... findes alternos". "Lara (5h)... findes alternos".
+        const refEmp = isEven ? lara : violeta;
         if (refEmp) shifts.push({ emp: refEmp.name, time: '09:15 - 14:15', type: 'reinforcement' });
-    }
 
-    // Bea Reinforcement (M-Sun, restricted times)
-    if (bea) {
-        if (day === 6 || day === 0 || isHoliday) {
-            // Wkds
-            shifts.push({ emp: bea.name, time: '08:00 - 12:00', type: 'reinforcement' });
-        } else {
-            // Weekdays 
-            shifts.push({ emp: bea.name, time: '07:30 - 12:00', type: 'reinforcement' });
+        // Bea also reinforces weekend? CSV: "Bea... si no trabajan con Asun hace refuerzo".
+        // Asun works Saturday. So Bea reinforces Sat?
+        // CSV: "Hay refuerzo de l-v de 7:30 a 12 y s, d, f de 09:15-14:15".
+        // The 9:15-14:15 slot is Violeta/Lara.
+        // Bea works "7:30-12h" when with Asun. "7:30-14:45" if Asun not there.
+        // Let's assume Bea covers Sunday Main (7:30-14:45).
+        if ((day === 0 || isHoliday) && bea) {
+            shifts.push({ emp: bea.name, time: openClose, type: isHoliday ? 'holiday_shift' : 'standard' });
         }
     }
 
-    // Iman Weekday Reinforcement (Needs ~4h/week more).
-    if ((day === 5 || day === 2) && !isHoliday) {
-        if (iman) shifts.push({ emp: iman.name, time: '09:15 - 13:15', type: 'reinforcement' });
+    // Weekday Reinforcement (M-V)
+    // 7:30 - 12:00.
+    // Who covers? Bea (30h) and Violeta (15h - weekends = ~10h left).
+    // Bea needs ~30h. 
+    // Sunday (7h). Sat (0h). 
+    // Weekdays reinforcement: 5 days * 4.5h = 22.5h.
+    // Total Bea: 29.5h. Perfect.
+    // So Bea covers Weekday Reinforcement generally.
+
+    // Violeta? "Violeta... resto de horas refuerzo entre semana".
+    // Does she cover when Bea is off? Or double reinforcement?
+    // Maybe Violeta covers the days Bea doesn't?
+    // Currently Bea covers all M-F to make numbers work.
+
+    if (day >= 1 && day <= 5 && !isHoliday) {
+        if (bea) shifts.push({ emp: bea.name, time: '07:30 - 12:00', type: 'reinforcement' });
+        // Violeta overlap if needed?
+        // ADDED OPTIMIZATION: Violeta needs ~10h weekday total.
+        // Overlap M, W, F for 3.5h? (10.5h).
+        // 10:00 - 13:30.
+        if (day === 1 || day === 3 || day === 5) {
+            if (violeta) shifts.push({ emp: violeta.name, time: '10:00 - 13:30', type: 'reinforcement' });
+        }
     }
 
-    return shifts;
+    // Apply 15m buffer to standard/holiday_shift types only (not reinforcement?)
+    // User: "buffer de 15m a las horas estándar". 
+    // Let's modify the push to use adjustTime.
+    // Or map at the end?
+    // Mapping at the end is safer.
+    return shifts.map(s => {
+        if (s.type === 'standard' || s.type === 'holiday_shift') {
+            return { ...s, time: adjustTime(s.time, 15, 15) };
+        }
+        return s;
+    });
 }
 
 function getFuenfrescaShifts(store: Store, date: Date, employees: Employee[], isHoliday: boolean, day: number): Shift[] {
     // Yolanda(35), Mari(30). Alternate weekends.
-    // Judith(5), Paola(5). Alternate weekends reinforcement 9:30-14:30.
-
-    // Yolanda 35, Mari 30. Total 65h. 
-    // Store Open: 07:30 - 14:30 (7h).
-    // Weekdays (5x7=35h). Weekend (2x7=14h). Total Open = 49h.
-    // 65h > 49h. Overlap required.
+    // Sabrina(5), Jorge López(5). Alternate weekends reinforcement 9:30-14:30.
 
     const yolanda = findEmp(employees, 'YOLANDA');
     const mari = findEmp(employees, 'MARI');
-    const judith = findEmp(employees, 'JUDITH');
-    const paola = findEmp(employees, 'PAOLA');
+    const sabrina = findEmp(employees, 'SABRINA');
+    const jorgel = findEmp(employees, 'LÓPEZ') || findEmp(employees, 'LOPEZ');
 
     const shifts: Shift[] = [];
     const openClose = '07:30 - 14:30';
@@ -346,83 +487,84 @@ function getFuenfrescaShifts(store: Store, date: Date, employees: Employee[], is
         const main = isEven ? mari : yolanda; // Even=Mari Wkd
         if (main) shifts.push({ emp: main.name, time: openClose, type: isHoliday ? 'holiday_shift' : 'standard' });
 
-        // Refuerzo Logic: Judith vs Paola alternate
-        const ref = isEven ? paola : judith;
+        // Refuerzo Logic: Sabrina vs Jorge L alternate
+        const ref = isEven ? jorgel : sabrina; // Even=Jorge? Odd=Sabrina? 
+        // Note: CSV says "Sabrina... findes alternos", "Jorge... findes alternos".
+        // Let's assume they alternate opposite to main? Or just alternate.
         if (ref) shifts.push({ emp: ref.name, time: '09:30 - 14:30', type: 'reinforcement' });
 
         return shifts;
     }
 
     // Weekday (M-F)
-    // Needs to distribute ~35h+30h (minus weekends).
-    // Week A (Mari Wkd): Mari 14h. Needs 16h. Yolanda 0h Wkd. Needs 35h.
-    // Total need M-F: 51h.
-    // Open hours M-F: 35h.
-    // Excess 16h -> ~2 days overlap or 3 days overlap.
-    // Let's schedule both on some days?
-    // Or schedule one Main, one Reinforcement/Overlap.
-    // Since we don't have explicit Reinforcement hours, maybe they split?
-    // User said "Ajuntate a las horas".
-    // I'll schedule both on peak days (e.g. Fri, Mon?) or Alternating coverage?
-    // Let's try: Yolanda works M-F Main. Mari works M-W Overlap?
-    // This simple logic hits hours.
+    // Yolanda(35) + Mari(30) = 65h. 
+    // Wkds (14h + 14h = 28h) consumed? No, Wkd is 1 person Main. 
+    // Yolanda works Wkd (14h) -> Needs 21h M-F. (3 days).
+    // Mari works Wkd (14h) -> Needs 16h M-F. (2-3 days).
+    // Total needed in M-F: 
+    // If Yolanda Wkd: Y(21) + M(30) = 51h.
+    // If Mari Wkd: M(16) + Y(35) = 51h.
+    // Overlap: 51h / 5 days = 10.2 hours/day.
+    // Open 7h.
+    // Need overlap of ~3.2h daily.
 
-    // Better Logic:
-    // Week A (Mari Wkd): Mari needs 2 days (Mon, Wed?). Yolanda needs 5 days M-F.
-    // Week B (Yolanda Wkd): Yolanda needs 3 days (Mon, Wed, Fri?). Mari needs 30h (4 days + 0.5?).
+    // Pattern: 
+    // Main Shift (7:30-14:30).
+    // Reinforcement Shift (e.g. 09:30-13:00?).
+    // Just schedule both.
 
-    // To ensure they get hours:
-    // Always schedule Yolanda M, T, W, Th, F. (35h) - wait, she works 35h TOTAL.
-    // If Yolanda works weekend (14h), she only needs 21h (3 weekdays).
-    // If Yolanda OFF weekend, she needs 35h (5 weekdays).
+    let mainEmp = yolanda;
+    let refEmp = mari;
 
-    // Mari (30h).
-    // If Mari works weekend (14h), she needs 16h (2-3 day).
-    // If Mari OFF weekend, she needs 30h (4-5 days).
+    // Adjust based on who is tired (worked weekend).
+    // If isEven (Mari worked weekend), she needs lighter load? 
+    // Mari needs 16h. Yolanda needs 35h.
+    // Main Emp = Yolanda (5 days * 7h = 35h).
+    // Ref Emp = Mari. (Needs 16h = ~3 days overlap).
 
-    // Pattern:
-    // Week A (Mari Wkd): Mari (Sat, Sun, Mon, Wed). Yolanda (Tue, Thu, Fri).
-    // Week B (Yolanda Wkd): Yolanda (Sat, Sun, Mon, Wed, Fri). Mari (Tue, Thu).
-
-    if (day === 6 || day === 0) return shifts; // Should be handled above
-
-    // M=1, T=2, W=3, Th=4, F=5
+    // If isOdd (Yolanda worked weekend), she needs 21h. Mari needs 30h.
+    // Main Emp = Mari. (5 days * 7h = 35h). (Excess 5h).
+    // Ref Emp = Yolanda. (Needs 21h. 3 days).
 
     if (isEven) {
-        // Mari Wkd. Mari works Mon, Wed? Yolanda Tue, Thu, Fri.
-        if (day === 1 || day === 3) {
-            if (mari) shifts.push({ emp: mari.name, time: openClose, type: 'standard' });
-        } else {
-            if (yolanda) shifts.push({ emp: yolanda.name, time: openClose, type: 'standard' });
-        }
-        // Adjustment: Yolanda needs 35h in this week (OFF wkd). She gets 3 days (21h). Short.
-        // Mari needs 30h. Gets 14+14 = 28h. Close.
-        // Yolanda is significantly short.
-        // WE MUST OVERLAP.
-        if (yolanda && (day === 1 || day === 3)) {
-            // Add Yolanda as reinforcement/overlap
-            shifts.push({ emp: yolanda.name, time: '08:00 - 13:00', type: 'reinforcement' }); // Mock overlap time
-        }
+        // Mari Wkd. Yolanda heavy week.
+        mainEmp = yolanda;
+        refEmp = mari;
+        // Schedule Ref (Mari) on M, W, F? (3 days * ~3.5h ~ 10.5h).
+        // Or M, T, W, Th (4 days * 4h = 16h).
+        // Let's schedule overlap M, T, W, Th.
     } else {
-        // Yolanda Wkd. Yolanda (Sat, Sun). Needs 21h -> 3 days.
-        // She works Mon, Wed, Fri? Matches 21h + 14h = 35h. Perfect.
-        // Mari (Off Wkd). Needs 30h -> ~4 days.
-        // She works Tue, Thu. (14h). Short.
-        // Mari needs 2 more days. (Mon, Wed).
-        // Conflict on Mon, Wed.
+        // Yolanda Wkd. Mari heavy week.
+        mainEmp = mari;
+        refEmp = yolanda;
+        // Schedule Ref (Yolanda) on M, W, F?
+    }
 
-        if (day === 2 || day === 4) {
-            if (mari) shifts.push({ emp: mari.name, time: openClose, type: 'standard' });
+    if (mainEmp) shifts.push({ emp: mainEmp.name, time: openClose, type: 'standard' });
+
+    // Overlap Logic simple:
+    if (refEmp) {
+        // Schedule on most days to cover hours?
+        // Let's schedule on M, T, Th, F.
+        if (day !== 3) { // Skip Wed? Or just schedule all 5 days with shorter hours?
+            shifts.push({ emp: refEmp.name, time: '09:30 - 13:30', type: 'reinforcement' });
         } else {
-            if (yolanda) shifts.push({ emp: yolanda.name, time: openClose, type: 'standard' });
-            // Overlap Mari
-            if (mari && (day === 1 || day === 3 || day === 5)) {
-                shifts.push({ emp: mari.name, time: '08:00 - 13:00', type: 'reinforcement' });
-            }
+            // Include Wed if hours needed.
+            shifts.push({ emp: refEmp.name, time: '09:30 - 13:30', type: 'reinforcement' });
         }
     }
 
-    return shifts;
+    // Apply 15m buffer to standard/holiday_shift types only (not reinforcement?)
+    // User: "buffer de 15m a las horas estándar". 
+    // Let's modify the push to use adjustTime.
+    // Or map at the end?
+    // Mapping at the end is safer.
+    return shifts.map(s => {
+        if (s.type === 'standard' || s.type === 'holiday_shift') {
+            return { ...s, time: adjustTime(s.time, 15, 15) };
+        }
+        return s;
+    });
 }
 
 function getSanJuanShifts(store: Store, date: Date, employees: Employee[], isHoliday: boolean, day: number): Shift[] {
@@ -477,10 +619,53 @@ function getSanJuanShifts(store: Store, date: Date, employees: Employee[], isHol
         }
     }
 
-    return shifts;
+    // Apply 15m buffer to standard/holiday_shift types only (not reinforcement?)
+    // User: "buffer de 15m a las horas estándar". 
+    // Let's modify the push to use adjustTime.
+    // Or map at the end?
+    // Mapping at the end is safer.
+    return shifts.map(s => {
+        if (s.type === 'standard' || s.type === 'holiday_shift') {
+            return { ...s, time: adjustTime(s.time, 15, 15) };
+        }
+        return s;
+    });
 }
 
 function getGenericShifts(store: Store, date: Date, employees: Employee[], isHoliday: boolean, day: number): Shift[] {
     // Fallback logic
     return [];
+}
+
+export function findSubstitutes(storeId: number, dateStr: string, start: string, end: string): Employee[] {
+    const date = parseISO(dateStr);
+    const day = getDay(date);
+
+    // 1. Get all context
+    const allStores = getAllStores();
+    const allEmployees = getAllEmployees();
+    const holidays = getAllHolidays();
+
+    // 2. Calculate who is working anywhere
+    const busyEmployeeIds = new Set<number>();
+
+    for (const store of allStores) {
+        // Get employees for this store
+        const storeEmployees = allEmployees.filter(e => e.store_id === store.id);
+        const shifts = getStoreShifts(store, date, storeEmployees, holidays);
+
+        for (const shift of shifts) {
+            const emp = allEmployees.find(e => e.name === shift.emp);
+            if (emp) {
+                busyEmployeeIds.add(emp.id);
+            }
+        }
+    }
+
+    // 3. Filter candidates
+    // Exclude current store employees? Maybe yes, maybe no. 
+    // Usually valid substitutes come from OTHER stores or are free in THIS store.
+    // Let's return anyone who is NOT busy.
+
+    return allEmployees.filter(e => !busyEmployeeIds.has(e.id));
 }

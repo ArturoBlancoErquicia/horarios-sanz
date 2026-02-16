@@ -4,7 +4,7 @@ const XLSX = require('xlsx');
 
 const dbPath = path.join(process.cwd(), 'horarios.db');
 const db = new Database(dbPath);
-const filePath = path.join(process.cwd(), 'docs', 'HORARIOS SANZ.xlsx');
+const filePath = path.join(process.cwd(), 'HORARIOScsv.csv');
 
 console.log(`Reading Excel file: ${filePath}`);
 

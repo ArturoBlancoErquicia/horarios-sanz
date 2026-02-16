@@ -41,57 +41,16 @@ export default async function SchedulePage({ params, searchParams }: { params: P
     const days = eachDayOfInterval({ start: rangeStart, end: rangeEnd });
     const weekDays = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
 
-    // Generador de Turnos Mock
+    // Real Logic Import
+    const { getStoreShifts } = await import('@/lib/logic');
     const { getAllHolidays } = await import('@/lib/holidays');
+
     const holidays = getAllHolidays();
 
     const getShiftsForDay = (day: Date) => {
-        // Determine day type
-        const dateStr = format(day, 'yyyy-MM-dd');
-        const isHoliday = holidays.find(h => h.date === dateStr);
-        const dayOfWeek = getDay(day); // 0 = Sunday, 1 = Monday, ...
-
-        let openTime, closeTime;
-
-        if (isHoliday || dayOfWeek === 0) {
-            // Domingo o Festivo
-            openTime = store.open_time_sunday;
-            closeTime = store.close_time_sunday;
-        } else if (dayOfWeek === 6) {
-            // Sábado
-            openTime = store.open_time_saturday;
-            closeTime = store.close_time_saturday;
-        } else {
-            // Lunes a Viernes
-            openTime = store.open_time_weekday;
-            closeTime = store.close_time_weekday;
-        }
-
-        // If no hours defined for this day type (e.g. closed Sunday), return empty
-        if (!openTime || !closeTime) {
-            // If it's a holiday and we have no hours, show "Festivo" closed card
-            if (isHoliday) {
-                return [{ emp: isHoliday.name, time: 'CERRADO', type: 'holiday' }];
-            }
-            return [];
-        }
-
-        // Assign Employee (Simple rotation based on day of year)
-        // Adjust rotation to ensure fairness or matches previous logic
-        // For now, keep simple rotation.
-        const empIndex = (day.getDate() + (day.getMonth() * 31)) % (employees.length || 1);
-        const workingEmp = employees[empIndex];
-
-        if (!workingEmp) return [];
-
-        // Return Single Continuous Shift
-        return [
-            {
-                emp: workingEmp.name,
-                time: `${openTime} - ${closeTime}`,
-                type: isHoliday ? 'holiday_shift' : 'standard'
-            }
-        ];
+        // Use the shared logic function
+        // @ts-ignore
+        return getStoreShifts(store, day, employees, holidays);
     };
 
     return (
@@ -174,10 +133,10 @@ export default async function SchedulePage({ params, searchParams }: { params: P
                                 <div className="flex-1 flex flex-col gap-2 overflow-hidden">
                                     {shifts.map((shift, idx) => (
                                         <div key={idx} className={`text-xs p-2 rounded border-l-4 shadow-sm ${shift.type === 'opening' ? 'bg-amber-50 border-amber-400' :
-                                                shift.type === 'closing' ? 'bg-indigo-50 border-indigo-400' :
-                                                    shift.type === 'holiday' ? 'bg-red-50 border-red-400' : // Closed Holiday
-                                                        shift.type === 'holiday_shift' ? 'bg-pink-50 border-pink-400' : // Working Holiday
-                                                            'bg-blue-50 border-blue-400' // Standard Single Shift
+                                            shift.type === 'closing' ? 'bg-indigo-50 border-indigo-400' :
+                                                shift.type === 'holiday' ? 'bg-red-50 border-red-400' : // Closed Holiday
+                                                    shift.type === 'holiday_shift' ? 'bg-pink-50 border-pink-400' : // Working Holiday
+                                                        'bg-blue-50 border-blue-400' // Standard Single Shift
                                             }`}>
                                             <div className="font-bold text-gray-800">{shift.emp}</div>
                                             <div className="text-gray-500 text-[10px] mt-0.5 flex justify-between">

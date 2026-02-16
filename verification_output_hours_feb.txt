@@ -1,0 +1,568 @@
+PRAGMA journal_mode = WAL
+Generating Shifts for Validation...
+
+--- Store: SAN JULIÁN ---
+[Logic] Calculating shifts for SAN JULIÁN on 2026-02-02
+SELECT * FROM schedules WHERE date = '2026-02-02'
+SELECT * FROM employees
+[Logic] Calculating shifts for SAN JULIÁN on 2026-02-03
+SELECT * FROM schedules WHERE date = '2026-02-03'
+SELECT * FROM employees
+[Logic] Calculating shifts for SAN JULIÁN on 2026-02-04
+SELECT * FROM schedules WHERE date = '2026-02-04'
+SELECT * FROM employees
+[Logic] Calculating shifts for SAN JULIÁN on 2026-02-05
+SELECT * FROM schedules WHERE date = '2026-02-05'
+SELECT * FROM employees
+[Logic] Calculating shifts for SAN JULIÁN on 2026-02-06
+SELECT * FROM schedules WHERE date = '2026-02-06'
+SELECT * FROM employees
+[Logic] Calculating shifts for SAN JULIÁN on 2026-02-07
+SELECT * FROM schedules WHERE date = '2026-02-07'
+SELECT * FROM employees
+[Logic] Calculating shifts for SAN JULIÁN on 2026-02-08
+SELECT * FROM schedules WHERE date = '2026-02-08'
+SELECT * FROM employees
+[Logic] Calculating shifts for SAN JULIÁN on 2026-02-09
+SELECT * FROM schedules WHERE date = '2026-02-09'
+SELECT * FROM employees
+[Logic] Calculating shifts for SAN JULIÁN on 2026-02-10
+SELECT * FROM schedules WHERE date = '2026-02-10'
+SELECT * FROM employees
+[Logic] Calculating shifts for SAN JULIÁN on 2026-02-11
+SELECT * FROM schedules WHERE date = '2026-02-11'
+SELECT * FROM employees
+[Logic] Calculating shifts for SAN JULIÁN on 2026-02-12
+SELECT * FROM schedules WHERE date = '2026-02-12'
+SELECT * FROM employees
+[Logic] Calculating shifts for SAN JULIÁN on 2026-02-13
+SELECT * FROM schedules WHERE date = '2026-02-13'
+SELECT * FROM employees
+[Logic] Calculating shifts for SAN JULIÁN on 2026-02-14
+SELECT * FROM schedules WHERE date = '2026-02-14'
+SELECT * FROM employees
+[Logic] Calculating shifts for SAN JULIÁN on 2026-02-15
+SELECT * FROM schedules WHERE date = '2026-02-15'
+SELECT * FROM employees
+Employee: CARMEN, Total Hours (2 weeks): 88.0, Weekly Avg: 44.0
+Employee: NATALIA, Total Hours (2 weeks): 74.0, Weekly Avg: 37.0
+Employee: MARIANIS, Total Hours (2 weeks): 18.0, Weekly Avg: 9.0
+
+--- Coverage Check ---
+[Logic] Calculating shifts for SAN JULIÁN on 2026-02-02
+SELECT * FROM schedules WHERE date = '2026-02-02'
+SELECT * FROM employees
+[Logic] Calculating shifts for SAN JULIÁN on 2026-02-03
+SELECT * FROM schedules WHERE date = '2026-02-03'
+SELECT * FROM employees
+[Logic] Calculating shifts for SAN JULIÁN on 2026-02-04
+SELECT * FROM schedules WHERE date = '2026-02-04'
+SELECT * FROM employees
+[Logic] Calculating shifts for SAN JULIÁN on 2026-02-05
+SELECT * FROM schedules WHERE date = '2026-02-05'
+SELECT * FROM employees
+[Logic] Calculating shifts for SAN JULIÁN on 2026-02-06
+SELECT * FROM schedules WHERE date = '2026-02-06'
+SELECT * FROM employees
+[Logic] Calculating shifts for SAN JULIÁN on 2026-02-07
+SELECT * FROM schedules WHERE date = '2026-02-07'
+SELECT * FROM employees
+[WARNING] Single person on 2026-02-07 (Saturday): NATALIA
+[Logic] Calculating shifts for SAN JULIÁN on 2026-02-08
+SELECT * FROM schedules WHERE date = '2026-02-08'
+SELECT * FROM employees
+[Logic] Calculating shifts for SAN JULIÁN on 2026-02-09
+SELECT * FROM schedules WHERE date = '2026-02-09'
+SELECT * FROM employees
+[Logic] Calculating shifts for SAN JULIÁN on 2026-02-10
+SELECT * FROM schedules WHERE date = '2026-02-10'
+SELECT * FROM employees
+[Logic] Calculating shifts for SAN JULIÁN on 2026-02-11
+SELECT * FROM schedules WHERE date = '2026-02-11'
+SELECT * FROM employees
+[Logic] Calculating shifts for SAN JULIÁN on 2026-02-12
+SELECT * FROM schedules WHERE date = '2026-02-12'
+SELECT * FROM employees
+[Logic] Calculating shifts for SAN JULIÁN on 2026-02-13
+SELECT * FROM schedules WHERE date = '2026-02-13'
+SELECT * FROM employees
+[Logic] Calculating shifts for SAN JULIÁN on 2026-02-14
+SELECT * FROM schedules WHERE date = '2026-02-14'
+SELECT * FROM employees
+[WARNING] Single person on 2026-02-14 (Saturday): CARMEN
+[Logic] Calculating shifts for SAN JULIÁN on 2026-02-15
+SELECT * FROM schedules WHERE date = '2026-02-15'
+SELECT * FROM employees
+
+--- Store: CASTRALVO ---
+[Logic] Calculating shifts for CASTRALVO on 2026-02-02
+SELECT * FROM schedules WHERE date = '2026-02-02'
+SELECT * FROM employees
+[Logic] Calculating shifts for CASTRALVO on 2026-02-03
+SELECT * FROM schedules WHERE date = '2026-02-03'
+SELECT * FROM employees
+[Logic] Calculating shifts for CASTRALVO on 2026-02-04
+SELECT * FROM schedules WHERE date = '2026-02-04'
+SELECT * FROM employees
+[Logic] Calculating shifts for CASTRALVO on 2026-02-05
+SELECT * FROM schedules WHERE date = '2026-02-05'
+SELECT * FROM employees
+[Logic] Calculating shifts for CASTRALVO on 2026-02-06
+SELECT * FROM schedules WHERE date = '2026-02-06'
+SELECT * FROM employees
+[Logic] Calculating shifts for CASTRALVO on 2026-02-07
+SELECT * FROM schedules WHERE date = '2026-02-07'
+SELECT * FROM employees
+[Logic] Calculating shifts for CASTRALVO on 2026-02-08
+SELECT * FROM schedules WHERE date = '2026-02-08'
+SELECT * FROM employees
+[Logic] Calculating shifts for CASTRALVO on 2026-02-09
+SELECT * FROM schedules WHERE date = '2026-02-09'
+SELECT * FROM employees
+[Logic] Calculating shifts for CASTRALVO on 2026-02-10
+SELECT * FROM schedules WHERE date = '2026-02-10'
+SELECT * FROM employees
+[Logic] Calculating shifts for CASTRALVO on 2026-02-11
+SELECT * FROM schedules WHERE date = '2026-02-11'
+SELECT * FROM employees
+[Logic] Calculating shifts for CASTRALVO on 2026-02-12
+SELECT * FROM schedules WHERE date = '2026-02-12'
+SELECT * FROM employees
+[Logic] Calculating shifts for CASTRALVO on 2026-02-13
+SELECT * FROM schedules WHERE date = '2026-02-13'
+SELECT * FROM employees
+[Logic] Calculating shifts for CASTRALVO on 2026-02-14
+SELECT * FROM schedules WHERE date = '2026-02-14'
+SELECT * FROM employees
+[Logic] Calculating shifts for CASTRALVO on 2026-02-15
+SELECT * FROM schedules WHERE date = '2026-02-15'
+SELECT * FROM employees
+Employee: MAR, Total Hours (2 weeks): 89.5, Weekly Avg: 44.8
+Employee: ESTHER M, Total Hours (2 weeks): 88.5, Weekly Avg: 44.3
+Employee: VICKY, Total Hours (2 weeks): 57.5, Weekly Avg: 28.8
+Employee: JORGE, Total Hours (2 weeks): 14.5, Weekly Avg: 7.3
+
+--- Coverage Check ---
+[Logic] Calculating shifts for CASTRALVO on 2026-02-02
+SELECT * FROM schedules WHERE date = '2026-02-02'
+SELECT * FROM employees
+[Logic] Calculating shifts for CASTRALVO on 2026-02-03
+SELECT * FROM schedules WHERE date = '2026-02-03'
+SELECT * FROM employees
+[Logic] Calculating shifts for CASTRALVO on 2026-02-04
+SELECT * FROM schedules WHERE date = '2026-02-04'
+SELECT * FROM employees
+[Logic] Calculating shifts for CASTRALVO on 2026-02-05
+SELECT * FROM schedules WHERE date = '2026-02-05'
+SELECT * FROM employees
+[Logic] Calculating shifts for CASTRALVO on 2026-02-06
+SELECT * FROM schedules WHERE date = '2026-02-06'
+SELECT * FROM employees
+[Logic] Calculating shifts for CASTRALVO on 2026-02-07
+SELECT * FROM schedules WHERE date = '2026-02-07'
+SELECT * FROM employees
+[Logic] Calculating shifts for CASTRALVO on 2026-02-08
+SELECT * FROM schedules WHERE date = '2026-02-08'
+SELECT * FROM employees
+[Logic] Calculating shifts for CASTRALVO on 2026-02-09
+SELECT * FROM schedules WHERE date = '2026-02-09'
+SELECT * FROM employees
+[Logic] Calculating shifts for CASTRALVO on 2026-02-10
+SELECT * FROM schedules WHERE date = '2026-02-10'
+SELECT * FROM employees
+[Logic] Calculating shifts for CASTRALVO on 2026-02-11
+SELECT * FROM schedules WHERE date = '2026-02-11'
+SELECT * FROM employees
+[Logic] Calculating shifts for CASTRALVO on 2026-02-12
+SELECT * FROM schedules WHERE date = '2026-02-12'
+SELECT * FROM employees
+[Logic] Calculating shifts for CASTRALVO on 2026-02-13
+SELECT * FROM schedules WHERE date = '2026-02-13'
+SELECT * FROM employees
+[Logic] Calculating shifts for CASTRALVO on 2026-02-14
+SELECT * FROM schedules WHERE date = '2026-02-14'
+SELECT * FROM employees
+[Logic] Calculating shifts for CASTRALVO on 2026-02-15
+SELECT * FROM schedules WHERE date = '2026-02-15'
+SELECT * FROM employees
+
+--- Store: FUENFRESCA ---
+[Logic] Calculating shifts for FUENFRESCA on 2026-02-02
+SELECT * FROM schedules WHERE date = '2026-02-02'
+SELECT * FROM employees
+[Logic] Calculating shifts for FUENFRESCA on 2026-02-03
+SELECT * FROM schedules WHERE date = '2026-02-03'
+SELECT * FROM employees
+[Logic] Calculating shifts for FUENFRESCA on 2026-02-04
+SELECT * FROM schedules WHERE date = '2026-02-04'
+SELECT * FROM employees
+[Logic] Calculating shifts for FUENFRESCA on 2026-02-05
+SELECT * FROM schedules WHERE date = '2026-02-05'
+SELECT * FROM employees
+[Logic] Calculating shifts for FUENFRESCA on 2026-02-06
+SELECT * FROM schedules WHERE date = '2026-02-06'
+SELECT * FROM employees
+[Logic] Calculating shifts for FUENFRESCA on 2026-02-07
+SELECT * FROM schedules WHERE date = '2026-02-07'
+SELECT * FROM employees
+[Logic] Calculating shifts for FUENFRESCA on 2026-02-08
+SELECT * FROM schedules WHERE date = '2026-02-08'
+SELECT * FROM employees
+[Logic] Calculating shifts for FUENFRESCA on 2026-02-09
+SELECT * FROM schedules WHERE date = '2026-02-09'
+SELECT * FROM employees
+[Logic] Calculating shifts for FUENFRESCA on 2026-02-10
+SELECT * FROM schedules WHERE date = '2026-02-10'
+SELECT * FROM employees
+[Logic] Calculating shifts for FUENFRESCA on 2026-02-11
+SELECT * FROM schedules WHERE date = '2026-02-11'
+SELECT * FROM employees
+[Logic] Calculating shifts for FUENFRESCA on 2026-02-12
+SELECT * FROM schedules WHERE date = '2026-02-12'
+SELECT * FROM employees
+[Logic] Calculating shifts for FUENFRESCA on 2026-02-13
+SELECT * FROM schedules WHERE date = '2026-02-13'
+SELECT * FROM employees
+[Logic] Calculating shifts for FUENFRESCA on 2026-02-14
+SELECT * FROM schedules WHERE date = '2026-02-14'
+SELECT * FROM employees
+[Logic] Calculating shifts for FUENFRESCA on 2026-02-15
+SELECT * FROM schedules WHERE date = '2026-02-15'
+SELECT * FROM employees
+Employee: YOLANDA, Total Hours (2 weeks): 75.0, Weekly Avg: 37.5
+Employee: MARI, Total Hours (2 weeks): 75.0, Weekly Avg: 37.5
+Employee: JORGE LÓPEZ, Total Hours (2 weeks): 10.0, Weekly Avg: 5.0
+Employee: SABRINA, Total Hours (2 weeks): 10.0, Weekly Avg: 5.0
+
+--- Coverage Check ---
+[Logic] Calculating shifts for FUENFRESCA on 2026-02-02
+SELECT * FROM schedules WHERE date = '2026-02-02'
+SELECT * FROM employees
+[Logic] Calculating shifts for FUENFRESCA on 2026-02-03
+SELECT * FROM schedules WHERE date = '2026-02-03'
+SELECT * FROM employees
+[Logic] Calculating shifts for FUENFRESCA on 2026-02-04
+SELECT * FROM schedules WHERE date = '2026-02-04'
+SELECT * FROM employees
+[Logic] Calculating shifts for FUENFRESCA on 2026-02-05
+SELECT * FROM schedules WHERE date = '2026-02-05'
+SELECT * FROM employees
+[Logic] Calculating shifts for FUENFRESCA on 2026-02-06
+SELECT * FROM schedules WHERE date = '2026-02-06'
+SELECT * FROM employees
+[Logic] Calculating shifts for FUENFRESCA on 2026-02-07
+SELECT * FROM schedules WHERE date = '2026-02-07'
+SELECT * FROM employees
+[Logic] Calculating shifts for FUENFRESCA on 2026-02-08
+SELECT * FROM schedules WHERE date = '2026-02-08'
+SELECT * FROM employees
+[Logic] Calculating shifts for FUENFRESCA on 2026-02-09
+SELECT * FROM schedules WHERE date = '2026-02-09'
+SELECT * FROM employees
+[Logic] Calculating shifts for FUENFRESCA on 2026-02-10
+SELECT * FROM schedules WHERE date = '2026-02-10'
+SELECT * FROM employees
+[Logic] Calculating shifts for FUENFRESCA on 2026-02-11
+SELECT * FROM schedules WHERE date = '2026-02-11'
+SELECT * FROM employees
+[Logic] Calculating shifts for FUENFRESCA on 2026-02-12
+SELECT * FROM schedules WHERE date = '2026-02-12'
+SELECT * FROM employees
+[Logic] Calculating shifts for FUENFRESCA on 2026-02-13
+SELECT * FROM schedules WHERE date = '2026-02-13'
+SELECT * FROM employees
+[Logic] Calculating shifts for FUENFRESCA on 2026-02-14
+SELECT * FROM schedules WHERE date = '2026-02-14'
+SELECT * FROM employees
+[Logic] Calculating shifts for FUENFRESCA on 2026-02-15
+SELECT * FROM schedules WHERE date = '2026-02-15'
+SELECT * FROM employees
+
+--- Store: SAN JUAN ---
+[Logic] Calculating shifts for SAN JUAN on 2026-02-02
+SELECT * FROM schedules WHERE date = '2026-02-02'
+SELECT * FROM employees
+[Logic] Calculating shifts for SAN JUAN on 2026-02-03
+SELECT * FROM schedules WHERE date = '2026-02-03'
+SELECT * FROM employees
+[Logic] Calculating shifts for SAN JUAN on 2026-02-04
+SELECT * FROM schedules WHERE date = '2026-02-04'
+SELECT * FROM employees
+[Logic] Calculating shifts for SAN JUAN on 2026-02-05
+SELECT * FROM schedules WHERE date = '2026-02-05'
+SELECT * FROM employees
+[Logic] Calculating shifts for SAN JUAN on 2026-02-06
+SELECT * FROM schedules WHERE date = '2026-02-06'
+SELECT * FROM employees
+[Logic] Calculating shifts for SAN JUAN on 2026-02-07
+SELECT * FROM schedules WHERE date = '2026-02-07'
+SELECT * FROM employees
+[Logic] Calculating shifts for SAN JUAN on 2026-02-08
+SELECT * FROM schedules WHERE date = '2026-02-08'
+SELECT * FROM employees
+[Logic] Calculating shifts for SAN JUAN on 2026-02-09
+SELECT * FROM schedules WHERE date = '2026-02-09'
+SELECT * FROM employees
+[Logic] Calculating shifts for SAN JUAN on 2026-02-10
+SELECT * FROM schedules WHERE date = '2026-02-10'
+SELECT * FROM employees
+[Logic] Calculating shifts for SAN JUAN on 2026-02-11
+SELECT * FROM schedules WHERE date = '2026-02-11'
+SELECT * FROM employees
+[Logic] Calculating shifts for SAN JUAN on 2026-02-12
+SELECT * FROM schedules WHERE date = '2026-02-12'
+SELECT * FROM employees
+[Logic] Calculating shifts for SAN JUAN on 2026-02-13
+SELECT * FROM schedules WHERE date = '2026-02-13'
+SELECT * FROM employees
+[Logic] Calculating shifts for SAN JUAN on 2026-02-14
+SELECT * FROM schedules WHERE date = '2026-02-14'
+SELECT * FROM employees
+[Logic] Calculating shifts for SAN JUAN on 2026-02-15
+SELECT * FROM schedules WHERE date = '2026-02-15'
+SELECT * FROM employees
+Employee: ANGELA, Total Hours (2 weeks): 70.0, Weekly Avg: 35.0
+Employee: ISABEL, Total Hours (2 weeks): 34.5, Weekly Avg: 17.3
+
+--- Coverage Check ---
+[Logic] Calculating shifts for SAN JUAN on 2026-02-02
+SELECT * FROM schedules WHERE date = '2026-02-02'
+SELECT * FROM employees
+[WARNING] Single person on 2026-02-02 (Monday): ANGELA
+[Logic] Calculating shifts for SAN JUAN on 2026-02-03
+SELECT * FROM schedules WHERE date = '2026-02-03'
+SELECT * FROM employees
+[WARNING] Single person on 2026-02-03 (Tuesday): ANGELA
+[Logic] Calculating shifts for SAN JUAN on 2026-02-04
+SELECT * FROM schedules WHERE date = '2026-02-04'
+SELECT * FROM employees
+[Logic] Calculating shifts for SAN JUAN on 2026-02-05
+SELECT * FROM schedules WHERE date = '2026-02-05'
+SELECT * FROM employees
+[WARNING] Single person on 2026-02-05 (Thursday): ANGELA
+[Logic] Calculating shifts for SAN JUAN on 2026-02-06
+SELECT * FROM schedules WHERE date = '2026-02-06'
+SELECT * FROM employees
+[WARNING] Single person on 2026-02-06 (Friday): ANGELA
+[Logic] Calculating shifts for SAN JUAN on 2026-02-07
+SELECT * FROM schedules WHERE date = '2026-02-07'
+SELECT * FROM employees
+[WARNING] Single person on 2026-02-07 (Saturday): ISABEL
+[Logic] Calculating shifts for SAN JUAN on 2026-02-08
+SELECT * FROM schedules WHERE date = '2026-02-08'
+SELECT * FROM employees
+[WARNING] Single person on 2026-02-08 (Sunday): ISABEL
+[Logic] Calculating shifts for SAN JUAN on 2026-02-09
+SELECT * FROM schedules WHERE date = '2026-02-09'
+SELECT * FROM employees
+[WARNING] Single person on 2026-02-09 (Monday): ANGELA
+[Logic] Calculating shifts for SAN JUAN on 2026-02-10
+SELECT * FROM schedules WHERE date = '2026-02-10'
+SELECT * FROM employees
+[WARNING] Single person on 2026-02-10 (Tuesday): ISABEL
+[Logic] Calculating shifts for SAN JUAN on 2026-02-11
+SELECT * FROM schedules WHERE date = '2026-02-11'
+SELECT * FROM employees
+[WARNING] Single person on 2026-02-11 (Wednesday): ANGELA
+[Logic] Calculating shifts for SAN JUAN on 2026-02-12
+SELECT * FROM schedules WHERE date = '2026-02-12'
+SELECT * FROM employees
+[WARNING] Single person on 2026-02-12 (Thursday): ISABEL
+[Logic] Calculating shifts for SAN JUAN on 2026-02-13
+SELECT * FROM schedules WHERE date = '2026-02-13'
+SELECT * FROM employees
+[Logic] Calculating shifts for SAN JUAN on 2026-02-14
+SELECT * FROM schedules WHERE date = '2026-02-14'
+SELECT * FROM employees
+[WARNING] Single person on 2026-02-14 (Saturday): ANGELA
+[Logic] Calculating shifts for SAN JUAN on 2026-02-15
+SELECT * FROM schedules WHERE date = '2026-02-15'
+SELECT * FROM employees
+[WARNING] Single person on 2026-02-15 (Sunday): ANGELA
+
+--- Store: AV ARAGON ---
+[Logic] Calculating shifts for AV ARAGON on 2026-02-02
+SELECT * FROM schedules WHERE date = '2026-02-02'
+SELECT * FROM employees
+[Logic] Calculating shifts for AV ARAGON on 2026-02-03
+SELECT * FROM schedules WHERE date = '2026-02-03'
+SELECT * FROM employees
+[Logic] Calculating shifts for AV ARAGON on 2026-02-04
+SELECT * FROM schedules WHERE date = '2026-02-04'
+SELECT * FROM employees
+[Logic] Calculating shifts for AV ARAGON on 2026-02-05
+SELECT * FROM schedules WHERE date = '2026-02-05'
+SELECT * FROM employees
+[Logic] Calculating shifts for AV ARAGON on 2026-02-06
+SELECT * FROM schedules WHERE date = '2026-02-06'
+SELECT * FROM employees
+[Logic] Calculating shifts for AV ARAGON on 2026-02-07
+SELECT * FROM schedules WHERE date = '2026-02-07'
+SELECT * FROM employees
+[Logic] Calculating shifts for AV ARAGON on 2026-02-08
+SELECT * FROM schedules WHERE date = '2026-02-08'
+SELECT * FROM employees
+[Logic] Calculating shifts for AV ARAGON on 2026-02-09
+SELECT * FROM schedules WHERE date = '2026-02-09'
+SELECT * FROM employees
+[Logic] Calculating shifts for AV ARAGON on 2026-02-10
+SELECT * FROM schedules WHERE date = '2026-02-10'
+SELECT * FROM employees
+[Logic] Calculating shifts for AV ARAGON on 2026-02-11
+SELECT * FROM schedules WHERE date = '2026-02-11'
+SELECT * FROM employees
+[Logic] Calculating shifts for AV ARAGON on 2026-02-12
+SELECT * FROM schedules WHERE date = '2026-02-12'
+SELECT * FROM employees
+[Logic] Calculating shifts for AV ARAGON on 2026-02-13
+SELECT * FROM schedules WHERE date = '2026-02-13'
+SELECT * FROM employees
+[Logic] Calculating shifts for AV ARAGON on 2026-02-14
+SELECT * FROM schedules WHERE date = '2026-02-14'
+SELECT * FROM employees
+[Logic] Calculating shifts for AV ARAGON on 2026-02-15
+SELECT * FROM schedules WHERE date = '2026-02-15'
+SELECT * FROM employees
+Employee: ESTHER P, Total Hours (2 weeks): 79.5, Weekly Avg: 39.8
+Employee: KARLA, Total Hours (2 weeks): 45.5, Weekly Avg: 22.8
+Employee: NATALIA (San Julián), Total Hours (2 weeks): 13.5, Weekly Avg: 6.8
+
+--- Coverage Check ---
+[Logic] Calculating shifts for AV ARAGON on 2026-02-02
+SELECT * FROM schedules WHERE date = '2026-02-02'
+SELECT * FROM employees
+[Logic] Calculating shifts for AV ARAGON on 2026-02-03
+SELECT * FROM schedules WHERE date = '2026-02-03'
+SELECT * FROM employees
+[Logic] Calculating shifts for AV ARAGON on 2026-02-04
+SELECT * FROM schedules WHERE date = '2026-02-04'
+SELECT * FROM employees
+[Logic] Calculating shifts for AV ARAGON on 2026-02-05
+SELECT * FROM schedules WHERE date = '2026-02-05'
+SELECT * FROM employees
+[Logic] Calculating shifts for AV ARAGON on 2026-02-06
+SELECT * FROM schedules WHERE date = '2026-02-06'
+SELECT * FROM employees
+[Logic] Calculating shifts for AV ARAGON on 2026-02-07
+SELECT * FROM schedules WHERE date = '2026-02-07'
+SELECT * FROM employees
+[WARNING] Single person on 2026-02-07 (Saturday): KARLA
+[Logic] Calculating shifts for AV ARAGON on 2026-02-08
+SELECT * FROM schedules WHERE date = '2026-02-08'
+SELECT * FROM employees
+[WARNING] Single person on 2026-02-08 (Sunday): KARLA
+[Logic] Calculating shifts for AV ARAGON on 2026-02-09
+SELECT * FROM schedules WHERE date = '2026-02-09'
+SELECT * FROM employees
+[Logic] Calculating shifts for AV ARAGON on 2026-02-10
+SELECT * FROM schedules WHERE date = '2026-02-10'
+SELECT * FROM employees
+[Logic] Calculating shifts for AV ARAGON on 2026-02-11
+SELECT * FROM schedules WHERE date = '2026-02-11'
+SELECT * FROM employees
+[Logic] Calculating shifts for AV ARAGON on 2026-02-12
+SELECT * FROM schedules WHERE date = '2026-02-12'
+SELECT * FROM employees
+[Logic] Calculating shifts for AV ARAGON on 2026-02-13
+SELECT * FROM schedules WHERE date = '2026-02-13'
+SELECT * FROM employees
+[Logic] Calculating shifts for AV ARAGON on 2026-02-14
+SELECT * FROM schedules WHERE date = '2026-02-14'
+SELECT * FROM employees
+[WARNING] Single person on 2026-02-14 (Saturday): ESTHER P
+[Logic] Calculating shifts for AV ARAGON on 2026-02-15
+SELECT * FROM schedules WHERE date = '2026-02-15'
+SELECT * FROM employees
+[WARNING] Single person on 2026-02-15 (Sunday): ESTHER P
+
+--- Store: SANTA AMALIA ---
+[Logic] Calculating shifts for SANTA AMALIA on 2026-02-02
+SELECT * FROM schedules WHERE date = '2026-02-02'
+SELECT * FROM employees
+[Logic] Calculating shifts for SANTA AMALIA on 2026-02-03
+SELECT * FROM schedules WHERE date = '2026-02-03'
+SELECT * FROM employees
+[Logic] Calculating shifts for SANTA AMALIA on 2026-02-04
+SELECT * FROM schedules WHERE date = '2026-02-04'
+SELECT * FROM employees
+[Logic] Calculating shifts for SANTA AMALIA on 2026-02-05
+SELECT * FROM schedules WHERE date = '2026-02-05'
+SELECT * FROM employees
+[Logic] Calculating shifts for SANTA AMALIA on 2026-02-06
+SELECT * FROM schedules WHERE date = '2026-02-06'
+SELECT * FROM employees
+[Logic] Calculating shifts for SANTA AMALIA on 2026-02-07
+SELECT * FROM schedules WHERE date = '2026-02-07'
+SELECT * FROM employees
+[Logic] Calculating shifts for SANTA AMALIA on 2026-02-08
+SELECT * FROM schedules WHERE date = '2026-02-08'
+SELECT * FROM employees
+[Logic] Calculating shifts for SANTA AMALIA on 2026-02-09
+SELECT * FROM schedules WHERE date = '2026-02-09'
+SELECT * FROM employees
+[Logic] Calculating shifts for SANTA AMALIA on 2026-02-10
+SELECT * FROM schedules WHERE date = '2026-02-10'
+SELECT * FROM employees
+[Logic] Calculating shifts for SANTA AMALIA on 2026-02-11
+SELECT * FROM schedules WHERE date = '2026-02-11'
+SELECT * FROM employees
+[Logic] Calculating shifts for SANTA AMALIA on 2026-02-12
+SELECT * FROM schedules WHERE date = '2026-02-12'
+SELECT * FROM employees
+[Logic] Calculating shifts for SANTA AMALIA on 2026-02-13
+SELECT * FROM schedules WHERE date = '2026-02-13'
+SELECT * FROM employees
+[Logic] Calculating shifts for SANTA AMALIA on 2026-02-14
+SELECT * FROM schedules WHERE date = '2026-02-14'
+SELECT * FROM employees
+[Logic] Calculating shifts for SANTA AMALIA on 2026-02-15
+SELECT * FROM schedules WHERE date = '2026-02-15'
+SELECT * FROM employees
+Employee: ASUN, Total Hours (2 weeks): 98.0, Weekly Avg: 49.0
+Employee: BEA, Total Hours (2 weeks): 60.5, Weekly Avg: 30.3
+Employee: VIOLETA, Total Hours (2 weeks): 31.0, Weekly Avg: 15.5
+Employee: LARA, Total Hours (2 weeks): 10.0, Weekly Avg: 5.0
+
+--- Coverage Check ---
+[Logic] Calculating shifts for SANTA AMALIA on 2026-02-02
+SELECT * FROM schedules WHERE date = '2026-02-02'
+SELECT * FROM employees
+[Logic] Calculating shifts for SANTA AMALIA on 2026-02-03
+SELECT * FROM schedules WHERE date = '2026-02-03'
+SELECT * FROM employees
+[Logic] Calculating shifts for SANTA AMALIA on 2026-02-04
+SELECT * FROM schedules WHERE date = '2026-02-04'
+SELECT * FROM employees
+[Logic] Calculating shifts for SANTA AMALIA on 2026-02-05
+SELECT * FROM schedules WHERE date = '2026-02-05'
+SELECT * FROM employees
+[Logic] Calculating shifts for SANTA AMALIA on 2026-02-06
+SELECT * FROM schedules WHERE date = '2026-02-06'
+SELECT * FROM employees
+[Logic] Calculating shifts for SANTA AMALIA on 2026-02-07
+SELECT * FROM schedules WHERE date = '2026-02-07'
+SELECT * FROM employees
+[Logic] Calculating shifts for SANTA AMALIA on 2026-02-08
+SELECT * FROM schedules WHERE date = '2026-02-08'
+SELECT * FROM employees
+[Logic] Calculating shifts for SANTA AMALIA on 2026-02-09
+SELECT * FROM schedules WHERE date = '2026-02-09'
+SELECT * FROM employees
+[Logic] Calculating shifts for SANTA AMALIA on 2026-02-10
+SELECT * FROM schedules WHERE date = '2026-02-10'
+SELECT * FROM employees
+[Logic] Calculating shifts for SANTA AMALIA on 2026-02-11
+SELECT * FROM schedules WHERE date = '2026-02-11'
+SELECT * FROM employees
+[Logic] Calculating shifts for SANTA AMALIA on 2026-02-12
+SELECT * FROM schedules WHERE date = '2026-02-12'
+SELECT * FROM employees
+[Logic] Calculating shifts for SANTA AMALIA on 2026-02-13
+SELECT * FROM schedules WHERE date = '2026-02-13'
+SELECT * FROM employees
+[Logic] Calculating shifts for SANTA AMALIA on 2026-02-14
+SELECT * FROM schedules WHERE date = '2026-02-14'
+SELECT * FROM employees
+[Logic] Calculating shifts for SANTA AMALIA on 2026-02-15
+SELECT * FROM schedules WHERE date = '2026-02-15'
+SELECT * FROM employees

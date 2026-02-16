@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { getStoreById, getEmployeesByStore } from '@/lib/data';
 import { Card } from '@/components/Card';
+import { EmployeeCard } from '@/components/EmployeeCard';
 import { notFound } from 'next/navigation';
 import { ArrowLeft, User, Calendar, PlusCircle } from 'lucide-react';
 
@@ -71,24 +72,9 @@ export default async function StorePage({ params }: { params: Promise<{ id: stri
                         <h2 className="font-bold text-lg uppercase">Plantilla</h2>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {employees.map((emp) => (
-                            <Card key={emp.id} className="border-l-4 border-l-blue-500">
-                                <div className="flex justify-between items-start mb-2">
-                                    <h3 className="font-bold text-gray-800">{emp.name}</h3>
-                                    <span className="text-xs font-mono bg-blue-50 text-blue-700 px-2 py-1 rounded border border-blue-100">
-                                        {emp.weekly_hours}h
-                                    </span>
-                                </div>
-                                <p className="text-sm text-gray-500 min-h-[2.5rem] mb-3">
-                                    {emp.rules}
-                                </p>
-                                <button className="text-xs px-3 py-1.5 rounded bg-red-50 text-red-600 font-bold border border-red-100 hover:bg-red-100 w-full text-center">
-                                    Registrar Baja
-                                </button>
-                            </Card>
-                        ))}
-                    </div>
+                    {employees.map((emp) => (
+                        <EmployeeCard key={emp.id} employee={emp} />
+                    ))}
                 </div>
             </div>
         </main>

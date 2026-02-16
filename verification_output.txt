@@ -1,0 +1,94 @@
+PRAGMA journal_mode = WAL
+Generating Shifts for Validation...
+
+--- Store: CASTRALVO ---
+[Logic] Calculating shifts for CASTRALVO on 2026-09-07
+SELECT * FROM schedules WHERE date = '2026-09-07'
+SELECT * FROM employees
+[Logic] Calculating shifts for CASTRALVO on 2026-09-08
+SELECT * FROM schedules WHERE date = '2026-09-08'
+SELECT * FROM employees
+[Logic] Calculating shifts for CASTRALVO on 2026-09-09
+SELECT * FROM schedules WHERE date = '2026-09-09'
+SELECT * FROM employees
+[Logic] Calculating shifts for CASTRALVO on 2026-09-10
+SELECT * FROM schedules WHERE date = '2026-09-10'
+SELECT * FROM employees
+[Logic] Calculating shifts for CASTRALVO on 2026-09-11
+SELECT * FROM schedules WHERE date = '2026-09-11'
+SELECT * FROM employees
+[Logic] Calculating shifts for CASTRALVO on 2026-09-12
+SELECT * FROM schedules WHERE date = '2026-09-12'
+SELECT * FROM employees
+[Logic] Calculating shifts for CASTRALVO on 2026-09-13
+SELECT * FROM schedules WHERE date = '2026-09-13'
+SELECT * FROM employees
+[Logic] Calculating shifts for CASTRALVO on 2026-09-14
+SELECT * FROM schedules WHERE date = '2026-09-14'
+SELECT * FROM employees
+[Logic] Calculating shifts for CASTRALVO on 2026-09-15
+SELECT * FROM schedules WHERE date = '2026-09-15'
+SELECT * FROM employees
+[Logic] Calculating shifts for CASTRALVO on 2026-09-16
+SELECT * FROM schedules WHERE date = '2026-09-16'
+SELECT * FROM employees
+[Logic] Calculating shifts for CASTRALVO on 2026-09-17
+SELECT * FROM schedules WHERE date = '2026-09-17'
+SELECT * FROM employees
+[Logic] Calculating shifts for CASTRALVO on 2026-09-18
+SELECT * FROM schedules WHERE date = '2026-09-18'
+SELECT * FROM employees
+[Logic] Calculating shifts for CASTRALVO on 2026-09-19
+SELECT * FROM schedules WHERE date = '2026-09-19'
+SELECT * FROM employees
+[Logic] Calculating shifts for CASTRALVO on 2026-09-20
+SELECT * FROM schedules WHERE date = '2026-09-20'
+SELECT * FROM employees
+Employee: MARIANIS, Total Hours (2 weeks): 71.5, Weekly Avg: 35.8
+Employee: ESTHER M, Total Hours (2 weeks): 77.5, Weekly Avg: 38.8
+Employee: VICKY, Total Hours (2 weeks): 62.5, Weekly Avg: 31.3
+Employee: JORGE, Total Hours (2 weeks): 14.5, Weekly Avg: 7.3
+
+--- Coverage Check ---
+[Logic] Calculating shifts for CASTRALVO on 2026-09-07
+SELECT * FROM schedules WHERE date = '2026-09-07'
+SELECT * FROM employees
+[Logic] Calculating shifts for CASTRALVO on 2026-09-08
+SELECT * FROM schedules WHERE date = '2026-09-08'
+SELECT * FROM employees
+[Logic] Calculating shifts for CASTRALVO on 2026-09-09
+SELECT * FROM schedules WHERE date = '2026-09-09'
+SELECT * FROM employees
+[Logic] Calculating shifts for CASTRALVO on 2026-09-10
+SELECT * FROM schedules WHERE date = '2026-09-10'
+SELECT * FROM employees
+[Logic] Calculating shifts for CASTRALVO on 2026-09-11
+SELECT * FROM schedules WHERE date = '2026-09-11'
+SELECT * FROM employees
+[Logic] Calculating shifts for CASTRALVO on 2026-09-12
+SELECT * FROM schedules WHERE date = '2026-09-12'
+SELECT * FROM employees
+[Logic] Calculating shifts for CASTRALVO on 2026-09-13
+SELECT * FROM schedules WHERE date = '2026-09-13'
+SELECT * FROM employees
+[Logic] Calculating shifts for CASTRALVO on 2026-09-14
+SELECT * FROM schedules WHERE date = '2026-09-14'
+SELECT * FROM employees
+[Logic] Calculating shifts for CASTRALVO on 2026-09-15
+SELECT * FROM schedules WHERE date = '2026-09-15'
+SELECT * FROM employees
+[Logic] Calculating shifts for CASTRALVO on 2026-09-16
+SELECT * FROM schedules WHERE date = '2026-09-16'
+SELECT * FROM employees
+[Logic] Calculating shifts for CASTRALVO on 2026-09-17
+SELECT * FROM schedules WHERE date = '2026-09-17'
+SELECT * FROM employees
+[Logic] Calculating shifts for CASTRALVO on 2026-09-18
+SELECT * FROM schedules WHERE date = '2026-09-18'
+SELECT * FROM employees
+[Logic] Calculating shifts for CASTRALVO on 2026-09-19
+SELECT * FROM schedules WHERE date = '2026-09-19'
+SELECT * FROM employees
+[Logic] Calculating shifts for CASTRALVO on 2026-09-20
+SELECT * FROM schedules WHERE date = '2026-09-20'
+SELECT * FROM employees
