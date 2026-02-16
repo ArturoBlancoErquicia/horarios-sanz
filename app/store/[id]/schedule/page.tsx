@@ -3,7 +3,7 @@ import { getStoreById, getEmployeesByStore } from '@/lib/data';
 import { Card } from '@/components/Card';
 import { notFound } from 'next/navigation';
 import { ArrowLeft, Calendar as CalendarIcon, ChevronLeft, ChevronRight } from 'lucide-react';
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isToday, startOfWeek, endOfWeek, getDay } from 'date-fns';
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isToday, startOfWeek, endOfWeek, getDay, addMonths, subMonths, addWeeks, subWeeks } from 'date-fns';
 import { es } from 'date-fns/locale';
 
 export default async function SchedulePage({ params, searchParams }: { params: Promise<{ id: string }>, searchParams: Promise<{ view?: string, date?: string }> }) {
@@ -20,7 +20,8 @@ export default async function SchedulePage({ params, searchParams }: { params: P
     const employees = getEmployeesByStore(id);
 
     // Fecha Base
-    const baseDate = date ? new Date(date) : new Date();
+    // Append T12:00:00 to avoid timezone shifts when parsing YYYY-MM-DD
+    const baseDate = date ? new Date(date.includes('T') ? date : `${date}T12:00:00`) : new Date();
 
     // Calcular Rango de Fechas según vista
     let rangeStart, rangeEnd, dateFormat;
@@ -30,8 +31,10 @@ export default async function SchedulePage({ params, searchParams }: { params: P
         rangeEnd = endOfWeek(baseDate, { weekStartsOn: 1 });
         dateFormat = "'Semana del' d 'de' MMMM";
     } else {
-        rangeStart = startOfMonth(baseDate);
-        rangeEnd = endOfMonth(baseDate);
+        const monthStart = startOfMonth(baseDate);
+        const monthEnd = endOfMonth(baseDate);
+        rangeStart = startOfWeek(monthStart, { weekStartsOn: 1 });
+        rangeEnd = endOfWeek(monthEnd, { weekStartsOn: 1 });
         dateFormat = 'MMMM yyyy';
     }
 
@@ -39,18 +42,55 @@ export default async function SchedulePage({ params, searchParams }: { params: P
     const weekDays = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
 
     // Generador de Turnos Mock
+    const { getAllHolidays } = await import('@/lib/holidays');
+    const holidays = getAllHolidays();
+
     const getShiftsForDay = (day: Date) => {
-        const dayOfWeek = getDay(day);
-        if (dayOfWeek === 0 && !store.open_time_sunday) return [];
+        // Determine day type
+        const dateStr = format(day, 'yyyy-MM-dd');
+        const isHoliday = holidays.find(h => h.date === dateStr);
+        const dayOfWeek = getDay(day); // 0 = Sunday, 1 = Monday, ...
 
-        const morningEmp = employees[day.getDate() % employees.length];
-        const afternoonEmp = employees[(day.getDate() + 1) % employees.length];
+        let openTime, closeTime;
 
-        if (!morningEmp) return [];
+        if (isHoliday || dayOfWeek === 0) {
+            // Domingo o Festivo
+            openTime = store.open_time_sunday;
+            closeTime = store.close_time_sunday;
+        } else if (dayOfWeek === 6) {
+            // Sábado
+            openTime = store.open_time_saturday;
+            closeTime = store.close_time_saturday;
+        } else {
+            // Lunes a Viernes
+            openTime = store.open_time_weekday;
+            closeTime = store.close_time_weekday;
+        }
 
+        // If no hours defined for this day type (e.g. closed Sunday), return empty
+        if (!openTime || !closeTime) {
+            // If it's a holiday and we have no hours, show "Festivo" closed card
+            if (isHoliday) {
+                return [{ emp: isHoliday.name, time: 'CERRADO', type: 'holiday' }];
+            }
+            return [];
+        }
+
+        // Assign Employee (Simple rotation based on day of year)
+        // Adjust rotation to ensure fairness or matches previous logic
+        // For now, keep simple rotation.
+        const empIndex = (day.getDate() + (day.getMonth() * 31)) % (employees.length || 1);
+        const workingEmp = employees[empIndex];
+
+        if (!workingEmp) return [];
+
+        // Return Single Continuous Shift
         return [
-            { emp: morningEmp.name, time: '08:00 - 14:00', type: 'opening' },
-            { emp: afternoonEmp?.name || employees[0].name, time: '14:00 - 20:30', type: 'closing' }
+            {
+                emp: workingEmp.name,
+                time: `${openTime} - ${closeTime}`,
+                type: isHoliday ? 'holiday_shift' : 'standard'
+            }
         ];
     };
 
@@ -87,11 +127,11 @@ export default async function SchedulePage({ params, searchParams }: { params: P
 
                     {/* Navigation */}
                     <div className="flex items-center gap-2">
-                        <Link href={`?view=${view}&date=${(view === 'week' ? new Date(baseDate.setDate(baseDate.getDate() - 7)) : new Date(baseDate.setMonth(baseDate.getMonth() - 1))).toISOString()}`}>
+                        <Link href={`?view=${view}&date=${(view === 'week' ? subWeeks(baseDate, 1) : subMonths(baseDate, 1)).toISOString()}`}>
                             <button className="p-1 hover:bg-gray-100 rounded text-blue-600"><ChevronLeft size={20} /></button>
                         </Link>
                         <span className="text-sm font-bold w-40 text-center capitalize">{format(baseDate, dateFormat, { locale: es })}</span>
-                        <Link href={`?view=${view}&date=${(view === 'week' ? new Date(baseDate.setDate(baseDate.getDate() + 14)) : new Date(baseDate.setMonth(baseDate.getMonth() + 2))).toISOString()}`}>
+                        <Link href={`?view=${view}&date=${(view === 'week' ? addWeeks(baseDate, 1) : addMonths(baseDate, 1)).toISOString()}`}>
                             <button className="p-1 hover:bg-gray-100 rounded text-blue-600"><ChevronRight size={20} /></button>
                         </Link>
                     </div>
@@ -133,11 +173,21 @@ export default async function SchedulePage({ params, searchParams }: { params: P
 
                                 <div className="flex-1 flex flex-col gap-2 overflow-hidden">
                                     {shifts.map((shift, idx) => (
-                                        <div key={idx} className={`text-xs p-2 rounded border-l-4 shadow-sm ${shift.type === 'opening' ? 'bg-amber-50 border-amber-400' : 'bg-indigo-50 border-indigo-400'}`}>
+                                        <div key={idx} className={`text-xs p-2 rounded border-l-4 shadow-sm ${shift.type === 'opening' ? 'bg-amber-50 border-amber-400' :
+                                                shift.type === 'closing' ? 'bg-indigo-50 border-indigo-400' :
+                                                    shift.type === 'holiday' ? 'bg-red-50 border-red-400' : // Closed Holiday
+                                                        shift.type === 'holiday_shift' ? 'bg-pink-50 border-pink-400' : // Working Holiday
+                                                            'bg-blue-50 border-blue-400' // Standard Single Shift
+                                            }`}>
                                             <div className="font-bold text-gray-800">{shift.emp}</div>
                                             <div className="text-gray-500 text-[10px] mt-0.5 flex justify-between">
                                                 <span>{shift.time}</span>
-                                                <span className="uppercase font-bold tracking-tighter opacity-70">{shift.type === 'opening' ? 'Apertura' : 'Cierre'}</span>
+                                                <span className="uppercase font-bold tracking-tighter opacity-70">
+                                                    {shift.type === 'opening' ? 'Apertura' :
+                                                        shift.type === 'closing' ? 'Cierre' :
+                                                            shift.type === 'holiday' ? 'Festivo' :
+                                                                shift.type === 'holiday_shift' ? 'Festivo' : 'Jornada'}
+                                                </span>
                                             </div>
                                         </div>
                                     ))}
@@ -157,6 +207,64 @@ export default async function SchedulePage({ params, searchParams }: { params: P
                     <div className="w-3 h-3 bg-indigo-50 border border-indigo-400 rounded"></div> Cierres
                 </div>
             </div>
+
+            {/* Hours Summary */}
+            <Card title="Resumen de Horas (Mensual)" className="mt-8 border-t-4 border-t-green-600">
+                <div className="overflow-x-auto">
+                    <table className="w-full text-sm text-left text-gray-500">
+                        <thead className="text-xs text-gray-700 uppercase bg-gray-50 border-b">
+                            <tr>
+                                <th className="px-6 py-3">Empleado</th>
+                                <th className="px-6 py-3 text-center">Horas Contrato</th>
+                                <th className="px-6 py-3 text-center">Horas Asignadas</th>
+                                <th className="px-6 py-3 text-center">Diferencia</th>
+                                <th className="px-6 py-3 text-center">Estado</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {employees.map(emp => {
+                                // Calculate total assigned hours
+                                let totalAssigned = 0;
+                                days.forEach(day => {
+                                    const shifts = getShiftsForDay(day);
+                                    shifts.forEach(shift => {
+                                        if (shift.emp === emp.name) {
+                                            const [start, end] = shift.time.split(' - ');
+                                            const [sh, sm] = start.split(':').map(Number);
+                                            const [eh, em] = end.split(':').map(Number);
+                                            const duration = (eh + em / 60) - (sh + sm / 60);
+                                            totalAssigned += duration;
+                                        }
+                                    });
+                                });
+
+                                // Monthly Estimation: Weekly * 4 weeks (Approx)
+                                // Better: Weekly / 7 * days in month
+                                const daysInMonth = days.length; // Approximate if view is month
+                                const monthlyTarget = (emp.weekly_hours / 7) * daysInMonth;
+                                const difference = totalAssigned - monthlyTarget;
+
+                                return (
+                                    <tr key={emp.id} className="bg-white border-b hover:bg-gray-50">
+                                        <td className="px-6 py-4 font-bold text-gray-900">{emp.name}</td>
+                                        <td className="px-6 py-4 text-center font-mono">{monthlyTarget.toFixed(1)}h</td>
+                                        <td className="px-6 py-4 text-center font-mono font-bold text-blue-600">{totalAssigned.toFixed(1)}h</td>
+                                        <td className={`px-6 py-4 text-center font-bold ${difference >= 0 ? 'text-green-600' : 'text-red-500'}`}>
+                                            {difference > 0 ? '+' : ''}{difference.toFixed(1)}h
+                                        </td>
+                                        <td className="px-6 py-4 text-center">
+                                            {difference >= 0 ?
+                                                <span className="bg-green-100 text-green-800 text-xs font-medium px-2.5 py-0.5 rounded">Cumplido</span> :
+                                                <span className="bg-red-100 text-red-800 text-xs font-medium px-2.5 py-0.5 rounded">Déficit</span>
+                                            }
+                                        </td>
+                                    </tr>
+                                );
+                            })}
+                        </tbody>
+                    </table>
+                </div>
+            </Card>
         </main>
     );
 }

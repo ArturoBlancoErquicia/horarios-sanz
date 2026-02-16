@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Card } from '@/components/Card';
-import { getSubstitutionProposals } from '@/app/actions';
+import { getSubstitutionProposals, getStoreEmployees } from '@/app/actions';
 
 export default function IncidencePage() {
     const searchParams = useSearchParams();
@@ -11,6 +11,16 @@ export default function IncidencePage() {
 
     const [results, setResults] = useState<any>(null);
     const [loading, setLoading] = useState(false);
+    const [employees, setEmployees] = useState<any[]>([]);
+    const [selectedStore, setSelectedStore] = useState(defaultStoreId);
+
+    // Fetch employees when store changes
+    React.useEffect(() => {
+        if (!selectedStore) return;
+        getStoreEmployees(parseInt(selectedStore as string))
+            .then(setEmployees)
+            .catch(console.error);
+    }, [selectedStore]);
 
     async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
         event.preventDefault();
@@ -34,11 +44,28 @@ export default function IncidencePage() {
                             <input
                                 type="number"
                                 name="storeId"
-                                defaultValue={defaultStoreId}
+                                value={selectedStore}
+                                onChange={(e) => setSelectedStore(e.target.value)}
                                 className="w-full p-2.5 rounded border border-gray-300 bg-gray-50 focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none transition"
                                 required
                             />
                         </div>
+
+                        <div>
+                            <label className="block text-sm font-bold text-gray-700 mb-1">Empleado Afectado (Baja/Ausencia)</label>
+                            <select
+                                name="employeeId"
+                                className="w-full p-2.5 rounded border border-gray-300 bg-gray-50 focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none transition"
+                                required
+                                defaultValue=""
+                            >
+                                <option value="" disabled>Seleccionar Empleado...</option>
+                                {employees.map(emp => (
+                                    <option key={emp.id} value={emp.id}>{emp.name}</option>
+                                ))}
+                            </select>
+                        </div>
+
                         <div>
                             <label className="block text-sm font-bold text-gray-700 mb-1">Fecha</label>
                             <input

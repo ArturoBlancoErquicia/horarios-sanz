@@ -1,10 +1,13 @@
 import Link from 'next/link';
 import { getAllStores, getEmployeesByStore } from '@/lib/data';
-import { Calendar } from 'lucide-react';
+import { getAllHolidays } from '@/lib/holidays';
+import { Calendar, Settings } from 'lucide-react';
 import { Card } from '@/components/Card';
+import HolidaysManager from '@/components/HolidaysManager';
 
 export default function Home() {
   const stores = getAllStores();
+  const holidays = getAllHolidays();
 
   return (
     <main className="min-h-screen p-8 max-w-7xl mx-auto font-[family-name:var(--font-geist-sans)]">
@@ -17,8 +20,9 @@ export default function Home() {
             </h1>
             <p className="text-gray-500 text-sm mt-1">Gestión de Horarios - Hornos Sanz</p>
           </div>
-          <div className="mt-4 md:mt-0 px-3 py-1 bg-gray-100 text-gray-500 text-xs font-mono rounded">
-            v1.0
+          <div className="mt-4 md:mt-0 px-3 py-1 bg-gray-100 text-gray-500 text-xs font-mono rounded text-right">
+            <div className="font-bold">Semana {getWeekNumber(new Date())}</div>
+            <div>{new Date().toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</div>
           </div>
         </div>
       </Card>
@@ -38,7 +42,7 @@ export default function Home() {
                 key={store.id}
                 title={store.name}
                 className="hover:shadow-xl transition-all duration-200 aspect-square transform hover:-translate-y-1"
-                action={<span className="text-xs bg-white/20 text-white px-2 py-1 rounded font-bold">ID: {store.id}</span>}
+                action={<span className="text-xs bg-white/20 text-white px-2 py-1 rounded font-bold">ID: {store.id} - {store.name}</span>}
               >
                 <div className="flex flex-col h-full justify-between">
                   <div className="space-y-4">
@@ -72,10 +76,28 @@ export default function Home() {
         </div>
       </section>
 
+      <section className="mt-12 border-t pt-8">
+        <div className="flex items-center gap-2 mb-6">
+          <div className="bg-orange-500 text-white w-8 h-8 flex items-center justify-center rounded font-bold">2</div>
+          <h2 className="text-orange-900 font-bold text-xl uppercase">Configuración Global</h2>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <HolidaysManager initialHolidays={holidays} />
+        </div>
+      </section>
+
       {/* Footer */}
       <footer className="mt-12 text-center text-gray-400 text-xs uppercase tracking-widest">
         Hornos Sanz Interno
       </footer>
     </main>
   );
+}
+
+function getWeekNumber(d: Date) {
+  d = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+  d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  const weekNo = Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
+  return weekNo;
 }

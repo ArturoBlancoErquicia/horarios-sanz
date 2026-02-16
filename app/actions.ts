@@ -23,3 +23,8 @@ export async function getSubstitutionProposals(formData: FormData) {
         searchDetails: { storeName: store?.name, date, start, end }
     };
 }
+
+export async function getStoreEmployees(storeId: number) {
+    const { getEmployeesByStore } = await import('@/lib/data');
+    return getEmployeesByStore(storeId);
+}

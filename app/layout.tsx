@@ -25,8 +25,26 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-gray-50`}
       >
+        <nav className="bg-white border-b border-gray-200 sticky top-0 z-50 shadow-sm print:hidden">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex justify-between h-16">
+              <div className="flex">
+                <div className="flex-shrink-0 flex items-center">
+                  <a href="/" className="text-blue-600 font-bold text-lg flex items-center gap-2">
+                    🏠 Hornos Sanz
+                  </a>
+                </div>
+              </div>
+              <div className="flex items-center">
+                <a href="/" className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-2 rounded-md text-sm font-medium transition-colors">
+                  Volver al Inicio
+                </a>
+              </div>
+            </div>
+          </div>
+        </nav>
         {children}
       </body>
     </html>

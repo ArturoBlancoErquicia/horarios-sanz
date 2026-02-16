@@ -38,6 +38,12 @@ const schema = `
     FOREIGN KEY(employee_id) REFERENCES employees(id),
     FOREIGN KEY(store_id) REFERENCES stores(id)
   );
+
+  CREATE TABLE IF NOT EXISTS holidays (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    date TEXT NOT NULL UNIQUE, -- YYYY-MM-DD
+    name TEXT
+  );
 `;
 
 db.exec(schema);
