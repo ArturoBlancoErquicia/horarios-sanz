@@ -54,9 +54,26 @@ export default async function StorePage({ params }: { params: Promise<{ id: stri
                     <Card title="Información">
                         <div className="space-y-4 text-sm">
                             <div className="flex justify-between items-center border-b border-gray-100 pb-2">
-                                <span className="text-gray-500">Apertura L-V</span>
+                                <span className="text-gray-500">Horario L-V</span>
                                 <span className="font-mono">{store.open_time_weekday} - {store.close_time_weekday}</span>
                             </div>
+                            {store.open_time_saturday && (
+                                <div className="flex justify-between items-center border-b border-gray-100 pb-2">
+                                    <span className="text-gray-500">Horario Sábado</span>
+                                    <span className="font-mono">{store.open_time_saturday} - {store.close_time_saturday}</span>
+                                </div>
+                            )}
+                            {store.open_time_sunday ? (
+                                <div className="flex justify-between items-center border-b border-gray-100 pb-2">
+                                    <span className="text-gray-500">Horario Domingo/Festivo</span>
+                                    <span className="font-mono">{store.open_time_sunday} - {store.close_time_sunday}</span>
+                                </div>
+                            ) : (
+                                <div className="flex justify-between items-center border-b border-gray-100 pb-2">
+                                    <span className="text-gray-500">Domingo/Festivo</span>
+                                    <span className="font-mono text-red-500">Cerrado</span>
+                                </div>
+                            )}
                             <div className="flex justify-between items-center">
                                 <span className="text-gray-500">Total Plantilla</span>
                                 <span className="font-bold bg-gray-100 px-2 rounded">{employees.length}</span>

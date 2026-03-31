@@ -1,5 +1,5 @@
 
-import { format, getDay, getISOWeek, isSameDay, parseISO } from 'date-fns';
+import { format, getDay, getISOWeek, parseISO, startOfWeek, endOfWeek, eachDayOfInterval } from 'date-fns';
 import { Store, Employee, getAllStores, getAllEmployees, getSchedulesByDate } from './data';
 import { Holiday, getAllHolidays } from './holidays';
 
@@ -38,23 +38,21 @@ function adjustTime(timeStr: string, startDelta: number, endDelta: number): stri
     return `${addMinutes(start, -startDelta)} - ${addMinutes(end, endDelta)}`;
 }
 
-// Helper: Get employee by name (partial match)
-// Helper: Get employee by name (strict, then partial)
-function findEmp(employees: Employee[], namePart: string): Employee | undefined {
-    // Try strict first
-    const strict = employees.find(e => e.name.toUpperCase() === namePart.toUpperCase());
-    if (strict) return strict;
+// Helper: Get employee by ID (preferred, exact match)
+function findEmpById(employees: Employee[], id: number): Employee | undefined {
+    return employees.find(e => e.id === id);
+}
 
-    // Partial
-    const found = employees.find(e => e.name.toUpperCase().includes(namePart.toUpperCase()));
-    // if (!found) console.log(`[Logic] Warning: Employee matching '${namePart}' not found in:`, employees.map(e => e.name));
-    return found;
+// Helper: Get employee by exact name (case-insensitive, accent-normalized)
+function findEmp(employees: Employee[], name: string): Employee | undefined {
+    const normalize = (s: string) => s.toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    const target = normalize(name);
+    return employees.find(e => normalize(e.name) === target);
 }
 
 // Main Logic Entry Point
 export function getStoreShifts(store: Store, date: Date, employees: Employee[], holidays: Holiday[]): Shift[] {
     const dateStr = format(date, 'yyyy-MM-dd');
-    console.log(`[Logic] Calculating shifts for ${store.name} on ${dateStr}`);
 
     // 1. Get DB Overrides (Schedules)
     const dbSchedules = getSchedulesByDate(dateStr);
@@ -213,7 +211,7 @@ function getCastralvoShifts(store: Store, date: Date, employees: Employee[], isH
     // Weekend Odd: Mar(S:7:30-15, D:6:30-14:30) + Jorge(S:6:30-13:30, D:7:30-15).
 
     const mar = findEmp(employees, 'MAR');
-    const esther = findEmp(employees, 'ESTHER M') || findEmp(employees, 'ESTHER');
+    const esther = findEmp(employees, 'ESTHER M');
     const vicky = findEmp(employees, 'VICKY');
     const jorge = findEmp(employees, 'JORGE');
 
@@ -474,7 +472,7 @@ function getFuenfrescaShifts(store: Store, date: Date, employees: Employee[], is
     const yolanda = findEmp(employees, 'YOLANDA');
     const mari = findEmp(employees, 'MARI');
     const sabrina = findEmp(employees, 'SABRINA');
-    const jorgel = findEmp(employees, 'LÓPEZ') || findEmp(employees, 'LOPEZ');
+    const jorgel = findEmp(employees, 'JORGE LÓPEZ');
 
     const shifts: Shift[] = [];
     const openClose = '07:30 - 14:30';
@@ -570,7 +568,7 @@ function getFuenfrescaShifts(store: Store, date: Date, employees: Employee[], is
 function getSanJuanShifts(store: Store, date: Date, employees: Employee[], isHoliday: boolean, day: number): Shift[] {
     // Angela(30), Isabel(20). Alternate weekends.
 
-    const angela = findEmp(employees, 'ÁNGELA') || findEmp(employees, 'ANGELA');
+    const angela = findEmp(employees, 'ANGELA');
     const isabel = findEmp(employees, 'ISABEL');
 
     const shifts: Shift[] = [];
@@ -635,6 +633,135 @@ function getSanJuanShifts(store: Store, date: Date, employees: Employee[], isHol
 function getGenericShifts(store: Store, date: Date, employees: Employee[], isHoliday: boolean, day: number): Shift[] {
     // Fallback logic
     return [];
+}
+
+// --- Utility: Parse time to hours ---
+export function parseTimeToHours(timeStr: string): number {
+    const [h, m] = timeStr.split(':').map(Number);
+    return h + m / 60;
+}
+
+// --- Utility: Calculate shift duration in hours ---
+export function shiftDurationHours(start: string, end: string): number {
+    return parseTimeToHours(end) - parseTimeToHours(start);
+}
+
+// --- Conflict Detection: Check if employee has overlapping shifts ---
+export interface ShiftConflict {
+    employeeId: number;
+    employeeName: string;
+    date: string;
+    store1: string;
+    store2: string;
+    time1: string;
+    time2: string;
+}
+
+function timesOverlap(start1: string, end1: string, start2: string, end2: string): boolean {
+    const s1 = parseTimeToHours(start1), e1 = parseTimeToHours(end1);
+    const s2 = parseTimeToHours(start2), e2 = parseTimeToHours(end2);
+    return s1 < e2 && s2 < e1;
+}
+
+export function detectConflicts(dateStr: string): ShiftConflict[] {
+    const date = parseISO(dateStr);
+    const allStores = getAllStores();
+    const allEmployees = getAllEmployees();
+    const holidays = getAllHolidays();
+    const conflicts: ShiftConflict[] = [];
+
+    // Collect all shifts per employee across all stores
+    const empShifts = new Map<string, { store: string; time: string; start: string; end: string }[]>();
+
+    for (const store of allStores) {
+        const storeEmployees = allEmployees.filter(e => e.store_id === store.id);
+        const shifts = getStoreShifts(store, date, storeEmployees, holidays);
+
+        for (const shift of shifts) {
+            if (shift.emp === 'CERRADO') continue;
+            const parts = shift.time.split(' - ');
+            if (parts.length !== 2) continue;
+
+            const existing = empShifts.get(shift.emp) || [];
+            existing.push({ store: store.name, time: shift.time, start: parts[0], end: parts[1] });
+            empShifts.set(shift.emp, existing);
+        }
+    }
+
+    // Check for overlaps within the same employee
+    for (const [empName, shifts] of empShifts) {
+        for (let i = 0; i < shifts.length; i++) {
+            for (let j = i + 1; j < shifts.length; j++) {
+                if (shifts[i].store !== shifts[j].store &&
+                    timesOverlap(shifts[i].start, shifts[i].end, shifts[j].start, shifts[j].end)) {
+                    const emp = allEmployees.find(e => e.name === empName);
+                    conflicts.push({
+                        employeeId: emp?.id || 0,
+                        employeeName: empName,
+                        date: dateStr,
+                        store1: shifts[i].store,
+                        store2: shifts[j].store,
+                        time1: shifts[i].time,
+                        time2: shifts[j].time,
+                    });
+                }
+            }
+        }
+    }
+
+    return conflicts;
+}
+
+// --- Weekly Hours Validation ---
+export interface WeeklyHoursCheck {
+    employeeId: number;
+    employeeName: string;
+    contractHours: number;
+    assignedHours: number;
+    difference: number;
+    overLimit: boolean;
+}
+
+export function checkWeeklyHours(employeeId: number, dateStr: string): WeeklyHoursCheck | null {
+    const date = parseISO(dateStr);
+    const allStores = getAllStores();
+    const allEmployees = getAllEmployees();
+    const holidays = getAllHolidays();
+
+    const employee = allEmployees.find(e => e.id === employeeId);
+    if (!employee) return null;
+
+    // Get week range (Mon-Sun)
+    const weekStart = startOfWeek(date, { weekStartsOn: 1 });
+    const weekEnd = endOfWeek(date, { weekStartsOn: 1 });
+    const weekDays = eachDayOfInterval({ start: weekStart, end: weekEnd });
+
+    let totalHours = 0;
+
+    for (const day of weekDays) {
+        for (const store of allStores) {
+            const storeEmployees = allEmployees.filter(e => e.store_id === store.id);
+            const shifts = getStoreShifts(store, day, storeEmployees, holidays);
+
+            for (const shift of shifts) {
+                if (shift.emp === employee.name && shift.time !== 'CERRADO') {
+                    const parts = shift.time.split(' - ');
+                    if (parts.length === 2) {
+                        totalHours += shiftDurationHours(parts[0], parts[1]);
+                    }
+                }
+            }
+        }
+    }
+
+    return {
+        employeeId: employee.id,
+        employeeName: employee.name,
+        contractHours: employee.weekly_hours,
+        assignedHours: Math.round(totalHours * 10) / 10,
+        difference: Math.round((totalHours - employee.weekly_hours) * 10) / 10,
+        overLimit: totalHours > employee.weekly_hours * 1.1, // 10% tolerance
+    };
 }
 
 export function findSubstitutes(storeId: number, dateStr: string, start: string, end: string): Employee[] {
