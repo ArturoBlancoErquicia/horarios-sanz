@@ -183,14 +183,14 @@ function getCastralvoShifts(store: Store, date: Date, employees: Employee[], isH
     // Quien trabaja finde libra viernes esa semana.
 
     const mar = findEmp(employees, 'MAR');
-    const esther = findEmp(employees, 'ESTHER M');
+    const esther = findEmp(employees, 'ESTHER M.');
     const vicky = findEmp(employees, 'VICKY');
     const jorge = findEmp(employees, 'JORGE');
 
     const shifts: Shift[] = [];
     const isEven = isEvenWeek(date);
 
-    // Fin de semana
+    // Fin de semana: 2 personas
     if (day === 6 || day === 0) {
         if (!isEven) {
             if (mar) shifts.push({ emp: mar.name, time: day === 6 ? '07:00 - 15:00' : '06:30 - 14:30', type: isHoliday ? 'holiday_shift' : 'standard' });
@@ -202,31 +202,26 @@ function getCastralvoShifts(store: Store, date: Date, employees: Employee[], isH
         return shifts;
     }
 
-    // Festivo entre semana
+    // Festivo entre semana: Mar + Esther
     if (isHoliday) {
-        if (isEven) {
-            if (mar) shifts.push({ emp: mar.name, time: '07:00 - 15:00', type: 'holiday_shift' });
-        } else {
-            if (esther) shifts.push({ emp: esther.name, time: '07:00 - 15:00', type: 'holiday_shift' });
-        }
+        if (mar) shifts.push({ emp: mar.name, time: '06:30 - 14:30', type: 'holiday_shift' });
+        if (esther) shifts.push({ emp: esther.name, time: '07:00 - 15:00', type: 'holiday_shift' });
         return shifts;
     }
 
-    // Viernes: quien trabaja finde libra
+    // Viernes: quien trabaja finde libra. 2 personas.
     if (day === 5) {
         if (!isEven) {
-            // Mar trabaja finde -> Mar libra viernes
             if (esther) shifts.push({ emp: esther.name, time: '06:30 - 14:30', type: 'standard' });
             if (vicky) shifts.push({ emp: vicky.name, time: '07:00 - 15:00', type: 'standard' });
         } else {
-            // Esther trabaja finde -> Esther libra viernes
             if (mar) shifts.push({ emp: mar.name, time: '06:30 - 14:30', type: 'standard' });
             if (vicky) shifts.push({ emp: vicky.name, time: '07:00 - 15:00', type: 'standard' });
         }
         return shifts;
     }
 
-    // Lunes a Jueves: Mar + Esther (rotan turno A/B)
+    // L-J: 3 personas. Mar + Esther M. siempre (rotan turno A/B) + Vicky refuerzo
     if (day === 1 || day === 3) {
         if (mar) shifts.push({ emp: mar.name, time: '06:30 - 14:30', type: 'standard' });
         if (esther) shifts.push({ emp: esther.name, time: '07:00 - 15:00', type: 'standard' });
@@ -235,7 +230,7 @@ function getCastralvoShifts(store: Store, date: Date, employees: Employee[], isH
         if (esther) shifts.push({ emp: esther.name, time: '06:30 - 14:30', type: 'standard' });
     }
 
-    // Vicky refuerzo L,M,X (3 días * 6h = 18h + finde alterno ~14h = ~25h/semana avg)
+    // Vicky refuerzo L,M,X (3 días * 6h = 18h + finde alterno ~14h biweekly ≈ 25h avg)
     if (day >= 1 && day <= 3) {
         if (vicky) shifts.push({ emp: vicky.name, time: '08:00 - 14:00', type: 'reinforcement' });
     }
