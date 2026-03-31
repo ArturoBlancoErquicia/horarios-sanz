@@ -1,11 +1,19 @@
 'use client'
 
-import React, { useState } from 'react';
+import React, { Suspense, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Card } from '@/components/Card';
 import { getSubstitutionProposals, getStoreEmployees } from '@/app/actions';
 
-export default function IncidencePage() {
+export default function IncidencePageWrapper() {
+    return (
+        <Suspense fallback={<div className="min-h-screen p-8 text-center text-gray-500">Cargando...</div>}>
+            <IncidencePage />
+        </Suspense>
+    );
+}
+
+function IncidencePage() {
     const searchParams = useSearchParams();
     const defaultStoreId = searchParams.get('storeId') || '';
 
