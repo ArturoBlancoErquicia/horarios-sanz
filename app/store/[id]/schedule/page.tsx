@@ -5,7 +5,7 @@ import ScheduleGrid from '@/components/ScheduleGrid';
 import ScheduleExportImport from '@/components/ScheduleExportImport';
 import { notFound } from 'next/navigation';
 import { ArrowLeft, ChevronLeft, ChevronRight } from 'lucide-react';
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, startOfWeek, endOfWeek, addMonths, subMonths, addWeeks, subWeeks } from 'date-fns';
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, startOfWeek, endOfWeek, addMonths, subMonths, addWeeks, subWeeks } from 'date-fns';
 import { es } from 'date-fns/locale';
 
 export default async function SchedulePage({ params, searchParams }: { params: Promise<{ id: string }>, searchParams: Promise<{ view?: string, date?: string }> }) {
@@ -53,7 +53,9 @@ export default async function SchedulePage({ params, searchParams }: { params: P
 
     const hoursSummary = employees.map(emp => {
         let totalAssigned = 0;
-        daysData.forEach(({ shifts }) => {
+        daysData.forEach(({ date: day, shifts }) => {
+            // Only count days within the current month (skip padding days)
+            if (!isSameMonth(day, baseDate)) return;
             shifts.forEach(shift => {
                 if (shift.emp === emp.name && shift.time !== 'CERRADO') {
                     const [start, end] = shift.time.split(' - ');
@@ -66,7 +68,9 @@ export default async function SchedulePage({ params, searchParams }: { params: P
             });
         });
 
-        const monthlyTarget = (emp.weekly_hours / 7) * days.length;
+        // Use actual days in month (not grid days which include padding)
+        const daysInMonth = new Date(baseDate.getFullYear(), baseDate.getMonth() + 1, 0).getDate();
+        const monthlyTarget = (emp.weekly_hours / 7) * daysInMonth;
         const difference = totalAssigned - monthlyTarget;
 
         return { emp, totalAssigned, monthlyTarget, difference };
