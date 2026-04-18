@@ -1,7 +1,7 @@
 'use server';
 
 import { findSubstitutes } from '@/lib/logic';
-import { createSchedule, getEmployeesByStore, getAllEmployees } from '@/lib/data'; // Need to export these valid functions
+import { createSchedule, getEmployeesByStore as fetchEmployeesByStore, getAllEmployees, getStoreById } from '@/lib/data';
 import { revalidatePath } from 'next/cache';
 import { format } from 'date-fns';
 
@@ -79,4 +79,64 @@ export async function assignSubstitute(employeeId: number, substituteId: number,
         console.error('Error assigning substitute:', error);
         return { success: false, error: 'Failed to assign substitute' };
     }
+}
+
+export async function getStoreEmployees(storeId: number) {
+    return fetchEmployeesByStore(storeId);
+}
+
+export async function getSubstitutionProposals(formData: FormData) {
+    const storeId = parseInt(formData.get('storeId') as string);
+    const employeeId = parseInt(formData.get('employeeId') as string);
+    const dateStr = formData.get('date') as string;
+    const start = formData.get('start') as string;
+    const end = formData.get('end') as string;
+
+    const store = getStoreById(storeId);
+    const allEmployees = getAllEmployees();
+    const absentEmployee = allEmployees.find(e => e.id === employeeId);
+
+    if (!store || !absentEmployee) {
+        return { candidates: [] };
+    }
+
+    const available = findSubstitutes(storeId, dateStr, start, end);
+
+    // Score candidates: prefer same store, fewer weekly hours (more availability), etc.
+    const candidates = available
+        .filter(e => e.id !== employeeId)
+        .map(emp => {
+            let score = 50;
+            const reasons: string[] = [];
+
+            if (emp.store_id === storeId) {
+                score += 30;
+                reasons.push('Mismo establecimiento');
+            } else {
+                reasons.push(`Tienda: ${allEmployees.find(e => e.id === emp.id)?.name || 'Otra'}`);
+            }
+
+            if (emp.weekly_hours < 30) {
+                score += 10;
+                reasons.push('Disponibilidad alta (menos horas semanales)');
+            }
+
+            if (emp.weekly_hours <= 20) {
+                score += 10;
+                reasons.push('Contrato parcial - mas flexible');
+            }
+
+            return {
+                id: emp.id,
+                name: emp.name,
+                weekly_hours: emp.weekly_hours,
+                store_id: emp.store_id,
+                score,
+                reason: reasons,
+            };
+        })
+        .sort((a, b) => b.score - a.score)
+        .slice(0, 5);
+
+    return { candidates };
 }

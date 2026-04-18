@@ -9,7 +9,7 @@ interface CustomNodeJsGlobal {
 
 declare const global: CustomNodeJsGlobal;
 
-const db = global.db || new Database(dbPath, { verbose: console.log });
+const db = global.db || new Database(dbPath);
 db.pragma('journal_mode = WAL');
 
 if (process.env.NODE_ENV !== 'production') {
