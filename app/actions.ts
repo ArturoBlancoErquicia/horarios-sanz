@@ -1,26 +1,58 @@
 'use server';
 
-import { findSubstitutes } from '@/lib/logic';
-import { createSchedule, getEmployeesByStore as fetchEmployeesByStore, getAllEmployees, getStoreById } from '@/lib/data';
+import { findSubstitutes, checkWeeklyHours, detectConflicts } from '@/lib/logic';
+import { createSchedule, getEmployeesByStore, getAllEmployees, getStoreById, updateSchedule, deleteSchedule } from '@/lib/data';
 import { revalidatePath } from 'next/cache';
-import { format } from 'date-fns';
+
+// --- Substitutes ---
 
 export async function getSubstitutes(dateStr: string) {
-    // Default time range (full day) as the logic currently marks anyone working that day as busy.
-    // We can refine this later to specific hours if needed.
-    const start = '00:00';
-    const end = '23:59';
-
-    // storeId is not really used in the exclusion logic of findSubstitutes (it gets all employees and excludes busy ones),
-    // but the signature requires it. We can pass 0 or any ID.
-    const storeId = 0;
-
     try {
-        const substitutes = findSubstitutes(storeId, dateStr, start, end);
+        const substitutes = findSubstitutes(0, dateStr, '00:00', '23:59');
         return { success: true, data: substitutes };
     } catch (error) {
         console.error('Error finding substitutes:', error);
         return { success: false, error: 'Failed to find substitutes' };
+    }
+}
+
+export async function getStoreEmployees(storeId: number) {
+    return getEmployeesByStore(storeId);
+}
+
+export async function getSubstitutionProposals(formData: FormData) {
+    const storeId = parseInt(formData.get('storeId') as string);
+    const employeeId = parseInt(formData.get('employeeId') as string);
+    const dateStr = formData.get('date') as string;
+    const start = formData.get('start') as string;
+    const end = formData.get('end') as string;
+
+    try {
+        const substitutes = findSubstitutes(storeId, dateStr, start, end);
+
+        const candidates = substitutes.slice(0, 5).map((sub, idx) => {
+            const weekCheck = checkWeeklyHours(sub.id, dateStr);
+            const reason: string[] = [];
+            if (weekCheck) {
+                reason.push(`Horas asignadas esta semana: ${weekCheck.assignedHours}h / ${weekCheck.contractHours}h`);
+                if (!weekCheck.overLimit) reason.push('Dentro del l\u00edmite de horas');
+                else reason.push('AVISO: Supera el l\u00edmite de horas semanales');
+            }
+            reason.push(`Tienda habitual: ID ${sub.store_id}`);
+
+            return {
+                id: sub.id,
+                name: sub.name,
+                weekly_hours: sub.weekly_hours,
+                score: weekCheck && !weekCheck.overLimit ? 90 - idx * 5 : 50 - idx * 5,
+                reason,
+            };
+        });
+
+        return { candidates };
+    } catch (error) {
+        console.error('Error getting substitution proposals:', error);
+        return { candidates: [] };
     }
 }
 
@@ -34,42 +66,32 @@ export async function assignSubstitute(employeeId: number, substituteId: number,
             throw new Error('Employee or Substitute not found');
         }
 
-        // 1. Mark original employee as Absent
-        // We need to know the time of the shift. For now, let's assume full day or standard store hours.
-        // Since logic.ts calculates exact times, we might want to just mark "absence" for the whole day
-        // and let logic.ts just exclude them. Start/End times in DB are useful for display/conflict checks.
-        // Let's use generic times for now or fetch store hours.
+        // Validate weekly hours for substitute
+        const weekCheck = checkWeeklyHours(substituteId, dateStr);
+        if (weekCheck?.overLimit) {
+            return { success: false, error: `${substitute.name} supera el l\u00edmite de horas semanales (${weekCheck.assignedHours}h / ${weekCheck.contractHours}h)` };
+        }
 
         createSchedule({
             employee_id: employee.id,
-            store_id: employee.store_id, // Absence is at their home store (or where they were scheduled)
+            store_id: employee.store_id,
             date: dateStr,
             start_time: '00:00',
-            end_time: '23:59', // Full day absence
+            end_time: '23:59',
             type: 'absence'
         });
 
-        // 2. Assign Substitute (Reinforcement)
-        // They effectively take the shift.
-        // Logic.ts `extraSchedules` loop will use the start/end time from this record.
-        // We should ideally copy the time the original employee WOULD have worked.
-        // But logic.ts generates that on the fly.
-        // For simplicity, let's assign a "standard" shift time or match the store hours.
-        // OR, we can just use 00:00-23:59 and rely on the type being 'work'/'reinforcement' which logic.ts just displays.
-        // Better: logic.ts logic for displaying extra schedules uses the time in the DB record.
-        // So we should put a realistic time. e.g. "To Be Defined" or look up store hours.
-        // Let's default to "Turno Sustitución" or similar text if possible? No, time field is string.
-        // Let's use "08:00" - "15:00" as a generic placeholder, or try to be smarter.
-        // For now: "00:00" - "00:00" might look weird.
-        // Let's use a generic 8h shift text? No, it expects HH:MM.
-        // Let's use 6:30 - 14:30 (common start).
+        // Use store hours for realistic shift times
+        const store = getStoreById(employee.store_id);
+        const startTime = store?.open_time_weekday || '06:30';
+        const endTime = store?.close_time_weekday || '14:30';
 
         createSchedule({
             employee_id: substitute.id,
-            store_id: employee.store_id, // They work at the ORIGINAL employee's store
+            store_id: employee.store_id,
             date: dateStr,
-            start_time: '06:30', // Default start
-            end_time: '14:30',   // Default end
+            start_time: startTime,
+            end_time: endTime,
             type: 'reinforcement'
         });
 
@@ -81,62 +103,57 @@ export async function assignSubstitute(employeeId: number, substituteId: number,
     }
 }
 
-export async function getStoreEmployees(storeId: number) {
-    return fetchEmployeesByStore(storeId);
+// --- Shift Editing ---
+
+export async function createManualShift(employeeId: number, storeId: number, dateStr: string, startTime: string, endTime: string, type: string) {
+    try {
+        const conflicts = detectConflicts(dateStr);
+        const empConflict = conflicts.find(c => c.employeeId === employeeId);
+        if (empConflict) {
+            return { success: false, error: `Conflicto: ${empConflict.employeeName} ya tiene turno en ${empConflict.store1} (${empConflict.time1})` };
+        }
+
+        const weekCheck = checkWeeklyHours(employeeId, dateStr);
+        if (weekCheck?.overLimit) {
+            return { success: false, error: `${weekCheck.employeeName} supera el l\u00edmite semanal (${weekCheck.assignedHours}h / ${weekCheck.contractHours}h)` };
+        }
+
+        createSchedule({
+            employee_id: employeeId,
+            store_id: storeId,
+            date: dateStr,
+            start_time: startTime,
+            end_time: endTime,
+            type: type as 'work' | 'absence' | 'reinforcement',
+        });
+
+        revalidatePath(`/store/${storeId}`);
+        return { success: true };
+    } catch (error) {
+        console.error('Error creating shift:', error);
+        return { success: false, error: 'Failed to create shift' };
+    }
 }
 
-export async function getSubstitutionProposals(formData: FormData) {
-    const storeId = parseInt(formData.get('storeId') as string);
-    const employeeId = parseInt(formData.get('employeeId') as string);
-    const dateStr = formData.get('date') as string;
-    const start = formData.get('start') as string;
-    const end = formData.get('end') as string;
-
-    const store = getStoreById(storeId);
-    const allEmployees = getAllEmployees();
-    const absentEmployee = allEmployees.find(e => e.id === employeeId);
-
-    if (!store || !absentEmployee) {
-        return { candidates: [] };
+export async function removeShift(scheduleId: number, storeId: number) {
+    try {
+        deleteSchedule(scheduleId);
+        revalidatePath(`/store/${storeId}`);
+        return { success: true };
+    } catch (error) {
+        console.error('Error removing shift:', error);
+        return { success: false, error: 'Failed to remove shift' };
     }
+}
 
-    const available = findSubstitutes(storeId, dateStr, start, end);
+// --- Conflict Detection ---
 
-    // Score candidates: prefer same store, fewer weekly hours (more availability), etc.
-    const candidates = available
-        .filter(e => e.id !== employeeId)
-        .map(emp => {
-            let score = 50;
-            const reasons: string[] = [];
-
-            if (emp.store_id === storeId) {
-                score += 30;
-                reasons.push('Mismo establecimiento');
-            } else {
-                reasons.push(`Tienda: ${allEmployees.find(e => e.id === emp.id)?.name || 'Otra'}`);
-            }
-
-            if (emp.weekly_hours < 30) {
-                score += 10;
-                reasons.push('Disponibilidad alta (menos horas semanales)');
-            }
-
-            if (emp.weekly_hours <= 20) {
-                score += 10;
-                reasons.push('Contrato parcial - mas flexible');
-            }
-
-            return {
-                id: emp.id,
-                name: emp.name,
-                weekly_hours: emp.weekly_hours,
-                store_id: emp.store_id,
-                score,
-                reason: reasons,
-            };
-        })
-        .sort((a, b) => b.score - a.score)
-        .slice(0, 5);
-
-    return { candidates };
+export async function getConflicts(dateStr: string) {
+    try {
+        const conflicts = detectConflicts(dateStr);
+        return { success: true, data: conflicts };
+    } catch (error) {
+        console.error('Error detecting conflicts:', error);
+        return { success: false, error: 'Failed to detect conflicts' };
+    }
 }

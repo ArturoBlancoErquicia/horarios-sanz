@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Hornos Sanz - Gestion de Horarios",
-  description: "Sistema de gestion de horarios y turnos para Hornos Sanz",
+  title: "Hornos Sanz - Gestión de Horarios",
+  description: "Sistema de gestión de horarios y turnos para Hornos Sanz",
 };
 
 export default function RootLayout({
