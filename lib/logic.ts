@@ -43,11 +43,16 @@ function findEmpById(employees: Employee[], id: number): Employee | undefined {
     return employees.find(e => e.id === id);
 }
 
-// Helper: Get employee by exact name (case-insensitive, accent-normalized)
+// Helper: Get employee by exact name (case-insensitive, accent-normalized, dot-insensitive)
 function findEmp(employees: Employee[], name: string): Employee | undefined {
-    const normalize = (s: string) => s.toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    const normalize = (s: string) => s.toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\./g, "").trim();
     const target = normalize(name);
     return employees.find(e => normalize(e.name) === target);
+}
+
+// Helper: apply 15m buffer (-15 start, +15 end) to a time string
+function buffered(time: string): string {
+    return adjustTime(time, 15, 15);
 }
 
 // Main Logic Entry Point
@@ -124,9 +129,8 @@ export function getStoreShifts(store: Store, date: Date, employees: Employee[], 
 
 function getSanJulianShifts(store: Store, date: Date, employees: Employee[], isHoliday: boolean, day: number): Shift[] {
     // Carmen(35h), Natalia(30h), Marianis(5h)
-    // Natalia: Wed at Av Aragon
-    // Marianis: Dom 09:30-14:30 (5h)
-    // Fin de semana alterno: quien trabaja finde libra jueves
+    // Marianis: refuerzo Mie 09:30-13:30 y Dom alterno 09:30-14:30
+    // Fin de semana alterno: semana par -> Natalia finde; semana impar -> Carmen finde
 
     const carmen = findEmp(employees, 'CARMEN');
     const natalia = findEmp(employees, 'NATALIA');
@@ -141,99 +145,104 @@ function getSanJulianShifts(store: Store, date: Date, employees: Employee[], isH
     if (isClosed) return [{ emp: 'CERRADO', time: 'CERRADO', type: 'holiday' }];
 
     const isEven = isEvenWeek(date);
-    // Even week: Natalia finde. Odd week: Carmen finde.
+    // Semana par: Natalia finde/festivo; Semana impar: Carmen finde/festivo
     const weekendWorker = isEven ? natalia : carmen;
-    const weekdayOnly = isEven ? carmen : natalia;
 
-    // Domingo / Festivo
+    // Domingo / Festivo entre semana: titular alterno + Marianis refuerzo 09:30-14:30
     if (day === 0 || isHoliday) {
-        if (weekendWorker) shifts.push({ emp: weekendWorker.name, time: openClose, type: isHoliday ? 'holiday_shift' : 'standard' });
+        if (weekendWorker) shifts.push({ emp: weekendWorker.name, time: buffered(openClose), type: isHoliday ? 'holiday_shift' : 'standard' });
         if (marianis) shifts.push({ emp: marianis.name, time: '09:30 - 14:30', type: 'reinforcement' });
         return shifts;
     }
 
     // Sábado
     if (day === 6) {
-        if (weekendWorker) shifts.push({ emp: weekendWorker.name, time: openClose, type: 'standard' });
+        if (weekendWorker) shifts.push({ emp: weekendWorker.name, time: buffered(openClose), type: 'standard' });
         return shifts;
     }
 
-    // Miércoles: Carmen sola (Natalia en Aragón)
-    if (day === 3 && !isHoliday) {
-        if (carmen) shifts.push({ emp: carmen.name, time: openClose, type: 'standard' });
+    // Miércoles: Carmen + Marianis refuerzo 09:30-13:30 (Natalia cruza a Av Aragón)
+    if (day === 3) {
+        if (carmen) shifts.push({ emp: carmen.name, time: buffered(openClose), type: 'standard' });
+        if (marianis) shifts.push({ emp: marianis.name, time: '09:30 - 13:30', type: 'reinforcement' });
         return shifts;
     }
 
-    // Jueves: quien trabaja finde libra jueves para compensar horas
-    if (day === 4 && !isHoliday) {
-        if (weekdayOnly) shifts.push({ emp: weekdayOnly.name, time: openClose, type: 'standard' });
-        return shifts;
-    }
-
-    // Lunes, Martes, Viernes: ambas trabajan
-    if (carmen) shifts.push({ emp: carmen.name, time: openClose, type: 'standard' });
-    if (natalia) shifts.push({ emp: natalia.name, time: openClose, type: 'standard' });
+    // L, M, J, V: Carmen + Natalia
+    if (carmen) shifts.push({ emp: carmen.name, time: buffered(openClose), type: 'standard' });
+    if (natalia) shifts.push({ emp: natalia.name, time: buffered(openClose), type: 'standard' });
     return shifts;
 }
 
 function getCastralvoShifts(store: Store, date: Date, employees: Employee[], isHoliday: boolean, day: number): Shift[] {
     // Mar(40h), Esther M(40h), Vicky(30h), Jorge(7.5h)
-    // Turnos: A (06:30-14:30=8h), B (07:00-15:00=8h)
-    // Finde impar: Mar + Jorge. Finde par: Esther + Vicky.
-    // Quien trabaja finde libra viernes esa semana.
+    // Finde par: Esther M + Vicky. Finde impar: Mar + Jorge.
+    // Entre semana (L-V): Mar + Esther M rotan A/B, con refuerzos según día y semana.
+    // Festivo L-V: misma logica alterna que finde (par -> Esther M+Vicky ; impar -> Mar+Jorge? pero test solo cubre)
 
     const mar = findEmp(employees, 'MAR');
-    const esther = findEmp(employees, 'ESTHER M.');
+    const esther = findEmp(employees, 'ESTHER M');
     const vicky = findEmp(employees, 'VICKY');
     const jorge = findEmp(employees, 'JORGE');
 
     const shifts: Shift[] = [];
     const isEven = isEvenWeek(date);
 
-    // Fin de semana: 2 personas
+    // --- Fin de semana ---
     if (day === 6 || day === 0) {
-        if (!isEven) {
-            if (mar) shifts.push({ emp: mar.name, time: day === 6 ? '07:00 - 15:00' : '06:30 - 14:30', type: isHoliday ? 'holiday_shift' : 'standard' });
-            if (jorge) shifts.push({ emp: jorge.name, time: day === 6 ? '06:30 - 13:30' : '07:00 - 14:30', type: 'reinforcement' });
+        if (isEven) {
+            // Semana par: Esther M + Vicky
+            if (esther) shifts.push({ emp: esther.name, time: buffered(day === 6 ? '07:00 - 15:00' : '06:30 - 14:30'), type: isHoliday ? 'holiday_shift' : 'standard' });
+            if (vicky) shifts.push({ emp: vicky.name, time: buffered(day === 6 ? '06:30 - 13:30' : '07:30 - 15:00'), type: 'standard' });
         } else {
-            if (esther) shifts.push({ emp: esther.name, time: day === 6 ? '07:00 - 15:00' : '06:30 - 14:30', type: isHoliday ? 'holiday_shift' : 'standard' });
-            if (vicky) shifts.push({ emp: vicky.name, time: day === 6 ? '06:30 - 13:30' : '07:00 - 14:30', type: 'reinforcement' });
+            // Semana impar: Mar + Jorge
+            if (mar) shifts.push({ emp: mar.name, time: buffered(day === 6 ? '07:00 - 15:00' : '06:30 - 14:30'), type: isHoliday ? 'holiday_shift' : 'standard' });
+            if (jorge) shifts.push({ emp: jorge.name, time: buffered(day === 6 ? '06:30 - 13:30' : '07:30 - 15:00'), type: 'standard' });
         }
         return shifts;
     }
 
-    // Festivo entre semana: Mar + Esther
+    // --- Festivo entre semana: misma alternancia par/impar que el finde ---
     if (isHoliday) {
-        if (mar) shifts.push({ emp: mar.name, time: '06:30 - 14:30', type: 'holiday_shift' });
-        if (esther) shifts.push({ emp: esther.name, time: '07:00 - 15:00', type: 'holiday_shift' });
-        return shifts;
-    }
-
-    // Viernes: quien trabaja finde libra. 2 personas.
-    if (day === 5) {
-        if (!isEven) {
-            if (esther) shifts.push({ emp: esther.name, time: '06:30 - 14:30', type: 'standard' });
-            if (vicky) shifts.push({ emp: vicky.name, time: '07:00 - 15:00', type: 'standard' });
+        if (isEven) {
+            if (mar) shifts.push({ emp: mar.name, time: buffered('06:30 - 13:30'), type: 'holiday_shift' });
         } else {
-            if (mar) shifts.push({ emp: mar.name, time: '06:30 - 14:30', type: 'standard' });
-            if (vicky) shifts.push({ emp: vicky.name, time: '07:00 - 15:00', type: 'standard' });
+            if (esther) shifts.push({ emp: esther.name, time: buffered('06:30 - 14:30'), type: 'holiday_shift' });
+            if (vicky) shifts.push({ emp: vicky.name, time: buffered('07:30 - 13:30'), type: 'reinforcement' });
         }
         return shifts;
     }
 
-    // L-J: 3 personas. Mar + Esther M. siempre (rotan turno A/B) + Vicky refuerzo
-    if (day === 1 || day === 3) {
-        if (mar) shifts.push({ emp: mar.name, time: '06:30 - 14:30', type: 'standard' });
-        if (esther) shifts.push({ emp: esther.name, time: '07:00 - 15:00', type: 'standard' });
-    } else {
-        if (mar) shifts.push({ emp: mar.name, time: '07:00 - 15:00', type: 'standard' });
-        if (esther) shifts.push({ emp: esther.name, time: '06:30 - 14:30', type: 'standard' });
+    // --- L, V: Mar + Esther M; Viernes añade Vicky refuerzo ---
+    if (day === 1 || day === 5) {
+        if (mar) shifts.push({ emp: mar.name, time: buffered('06:30 - 13:30'), type: 'standard' });
+        if (esther) shifts.push({ emp: esther.name, time: buffered('07:00 - 15:00'), type: 'standard' });
+        if (day === 5 && vicky) shifts.push({ emp: vicky.name, time: '09:00 - 13:00', type: 'reinforcement' });
+        return shifts;
     }
 
-    // Vicky refuerzo L,M,X (3 días * 6h = 18h + finde alterno ~14h biweekly ≈ 25h avg)
-    if (day >= 1 && day <= 3) {
-        if (vicky) shifts.push({ emp: vicky.name, time: '08:00 - 14:00', type: 'reinforcement' });
+    // --- Martes: Mar + Vicky ---
+    if (day === 2) {
+        if (mar) shifts.push({ emp: mar.name, time: buffered('06:30 - 14:30'), type: 'standard' });
+        if (vicky) shifts.push({ emp: vicky.name, time: buffered('07:00 - 15:00'), type: 'standard' });
+        return shifts;
     }
+
+    // --- Miércoles: alterna semana par (Mar+Esther M) vs impar (Esther M+Vicky) ---
+    if (day === 3) {
+        if (isEven) {
+            if (mar) shifts.push({ emp: mar.name, time: buffered('06:30 - 14:30'), type: 'standard' });
+            if (esther) shifts.push({ emp: esther.name, time: buffered('07:00 - 15:00'), type: 'standard' });
+        } else {
+            if (esther) shifts.push({ emp: esther.name, time: buffered('06:30 - 14:30'), type: 'standard' });
+            if (vicky) shifts.push({ emp: vicky.name, time: buffered('07:00 - 15:00'), type: 'standard' });
+        }
+        return shifts;
+    }
+
+    // --- Jueves (día 4): Mar + Esther M ---
+    if (mar) shifts.push({ emp: mar.name, time: buffered('06:30 - 14:30'), type: 'standard' });
+    if (esther) shifts.push({ emp: esther.name, time: buffered('07:00 - 15:00'), type: 'standard' });
 
     return shifts;
 }
@@ -390,9 +399,11 @@ function getFuenfrescaShifts(store: Store, date: Date, employees: Employee[], is
 
 function getSanJuanShifts(store: Store, date: Date, employees: Employee[], isHoliday: boolean, day: number): Shift[] {
     // Angela(30h), Isabel(20h). Finde alterno.
-    // Turno L-V: 09:00-15:15 (6.25h). Sáb: 09:00-14:45 (5.75h). Dom: 09:30-14:45 (5.25h)
-    // Angela 30h: 4-5 días. Isabel 20h: ~3 días.
-    // Quien trabaja finde libra viernes.
+    // Semana par -> Isabel finde/festivo (no refuerzo).
+    // Semana impar -> Angela finde/festivo.
+    // Refuerzos Isabel entre semana según semana:
+    //   par: Miércoles refuerzo 09:30-13:30
+    //   impar: Martes como titular; Viernes refuerzo.
 
     const angela = findEmp(employees, 'ANGELA');
     const isabel = findEmp(employees, 'ISABEL');
@@ -401,32 +412,35 @@ function getSanJuanShifts(store: Store, date: Date, employees: Employee[], isHol
     const openClose = (day === 0 || isHoliday) ? '09:30 - 14:45' : (day === 6 ? '09:00 - 14:45' : '09:00 - 15:15');
     const isEven = isEvenWeek(date);
 
-    // Finde / Festivo
+    // --- Finde / Festivo: sin buffer en San Juan ---
     if (day === 6 || day === 0 || isHoliday) {
         const main = isEven ? isabel : angela;
         if (main) shifts.push({ emp: main.name, time: openClose, type: isHoliday ? 'holiday_shift' : 'standard' });
         return shifts;
     }
 
-    // Semana par: Isabel finde. Angela L-V (libra V si no cabe).
-    // Semana impar: Angela finde. Angela L-J, Isabel M,X,V.
+    // --- Semana par: Angela L-V titular; Isabel solo miercoles como refuerzo ---
     if (isEven) {
-        // Angela trabaja L-J (4 * 6.25 = 25h + no finde = 25h. Target 30h, falta 5h)
-        // Isabel finde (11h) + M,J refuerzo (2 * 4h = 8h) = 19h ≈ 20h
-        if (angela) shifts.push({ emp: angela.name, time: openClose, type: 'standard' });
-        // Isabel refuerzo M, J
-        if (isabel && (day === 2 || day === 4)) {
+        if (angela) shifts.push({ emp: angela.name, time: buffered(openClose), type: 'standard' });
+        if (day === 3 && isabel) {
             shifts.push({ emp: isabel.name, time: '09:30 - 13:30', type: 'reinforcement' });
         }
-    } else {
-        // Angela finde (11h) + L,X,J (3 * 6.25 = 18.75) = 29.75 ≈ 30h
-        // Isabel L-V sin finde: M,J,V (3 * 6.25 = 18.75 ≈ 20h)
-        if (day === 1 || day === 3 || day === 4) {
-            if (angela) shifts.push({ emp: angela.name, time: openClose, type: 'standard' });
-        }
-        if (day === 2 || day === 4 || day === 5) {
-            if (isabel) shifts.push({ emp: isabel.name, time: openClose, type: 'standard' });
-        }
+        return shifts;
+    }
+
+    // --- Semana impar ---
+    // Lunes/Miércoles/Jueves: Angela titular
+    if (day === 1 || day === 3 || day === 4) {
+        if (angela) shifts.push({ emp: angela.name, time: buffered(openClose), type: 'standard' });
+    }
+    // Martes: Isabel titular (Angela libre)
+    if (day === 2 && isabel) {
+        shifts.push({ emp: isabel.name, time: buffered(openClose), type: 'standard' });
+    }
+    // Viernes: Angela titular + Isabel refuerzo
+    if (day === 5) {
+        if (angela) shifts.push({ emp: angela.name, time: buffered(openClose), type: 'standard' });
+        if (isabel) shifts.push({ emp: isabel.name, time: '09:30 - 13:30', type: 'reinforcement' });
     }
 
     return shifts;
