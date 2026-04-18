@@ -168,7 +168,8 @@ describe('getStoreShifts - San Julian', () => {
             const marianis = shifts.find(s => s.emp === 'MARIANIS')!;
             expect(carmen.type).toBe('standard');
             expect(marianis.type).toBe('reinforcement');
-            expect(marianis.time).toBe('09:30 - 13:30');
+            // Marianis hace las 5h de contrato el miércoles: 09:30-14:30
+            expect(marianis.time).toBe('09:30 - 14:30');
         });
     });
 
@@ -193,7 +194,7 @@ describe('getStoreShifts - San Julian', () => {
             expect(shiftNames(shifts)).not.toContain('NATALIA');
         });
 
-        it('even week Sunday: Natalia works + Marianis reinforcement', () => {
+        it('even week Sunday: Natalia works alone (Marianis solo miércoles)', () => {
             // March 8, 2026 = Sunday, week 10 (even)
             const sunday = new Date(2026, 2, 8);
             expect(isEvenWeek(sunday)).toBe(true);
@@ -201,16 +202,15 @@ describe('getStoreShifts - San Julian', () => {
             const shifts = getStoreShifts(sanJulian, sunday, sjEmployees(), noHolidays);
             const names = shiftNames(shifts);
             expect(names).toContain('NATALIA');
-            expect(names).toContain('MARIANIS');
+            expect(names).not.toContain('MARIANIS');
             expect(names).not.toContain('CARMEN');
         });
 
-        it('Marianis has reinforcement time 09:30 - 14:30 on Sunday', () => {
+        it('Marianis only works Wednesday, not Sunday', () => {
             const sunday = new Date(2026, 2, 8);
             const shifts = getStoreShifts(sanJulian, sunday, sjEmployees(), noHolidays);
-            const marianis = shifts.find(s => s.emp === 'MARIANIS')!;
-            expect(marianis.time).toBe('09:30 - 14:30');
-            expect(marianis.type).toBe('reinforcement');
+            const marianis = shifts.find(s => s.emp === 'MARIANIS');
+            expect(marianis).toBeUndefined();
         });
     });
 
@@ -221,10 +221,10 @@ describe('getStoreShifts - San Julian', () => {
 
             const shifts = getStoreShifts(sanJulian, monday, sjEmployees(), holidays);
 
-            // Even week holiday -> Natalia main + Marianis reinforcement
+            // Semana par con festivo -> Natalia titular (sola; Marianis solo miércoles)
             const names = shiftNames(shifts);
             expect(names).toContain('NATALIA');
-            expect(names).toContain('MARIANIS');
+            expect(names).not.toContain('CARMEN');
         });
 
         it('holiday shifts have holiday_shift type for main employee', () => {
@@ -264,45 +264,47 @@ describe('getStoreShifts - Castralvo', () => {
     const cvEmployees = () => storeEmployees(53);
 
     describe('Weekday rotation', () => {
-        it('Monday: Mar (06:30-13:30) + Esther M (07:00-15:00) with buffer', () => {
+        it('Monday: Mar (A 06:30-14:30, 8h) + Esther M (B 07:00-15:00, 8h) + Vicky refuerzo', () => {
             const monday = new Date(2026, 2, 2);
             const shifts = getStoreShifts(castralvo, monday, cvEmployees(), noHolidays);
 
             const mar = shifts.find(s => s.emp === 'MAR')!;
             const esther = shifts.find(s => s.emp === 'ESTHER M')!;
+            const vicky = shifts.find(s => s.emp === 'VICKY')!;
 
             expect(mar).toBeDefined();
             expect(esther).toBeDefined();
-            // 06:30-13:30 with -15/+15 buffer -> 06:15-13:45
-            expect(mar.time).toBe('06:15 - 13:45');
+            expect(vicky).toBeDefined();
+            // Castralvo ya no aplica buffer: los 8h del titular son jornada completa exacta
+            expect(mar.time).toBe('06:30 - 14:30');
             expect(mar.type).toBe('standard');
-            // 07:00-15:00 with buffer -> 06:45-15:15
-            expect(esther.time).toBe('06:45 - 15:15');
+            expect(esther.time).toBe('07:00 - 15:00');
+            expect(vicky.time).toBe('09:00 - 12:00');
+            expect(vicky.type).toBe('reinforcement');
         });
 
-        it('Tuesday: Mar + Vicky', () => {
+        it('Tuesday: Mar + Esther M + Vicky (refuerzo)', () => {
             const tuesday = new Date(2026, 2, 3);
             const shifts = getStoreShifts(castralvo, tuesday, cvEmployees(), noHolidays);
 
             const names = shiftNames(shifts);
             expect(names).toContain('MAR');
+            expect(names).toContain('ESTHER M');
             expect(names).toContain('VICKY');
-            expect(names).not.toContain('ESTHER M');
         });
 
-        it('Wednesday (even week / MAR focus): Mar + Esther M', () => {
-            // March 4, 2026 = Wed, week 10 (even) -> weekdayFocus = MAR
+        it('Wednesday (even week): Mar + Vicky (Esther M libra)', () => {
             const wednesday = new Date(2026, 2, 4);
             expect(isEvenWeek(wednesday)).toBe(true);
 
             const shifts = getStoreShifts(castralvo, wednesday, cvEmployees(), noHolidays);
             const names = shiftNames(shifts);
             expect(names).toContain('MAR');
-            expect(names).toContain('ESTHER M');
+            expect(names).toContain('VICKY');
+            expect(names).not.toContain('ESTHER M');
         });
 
-        it('Wednesday (odd week / ESTHER_VICKY focus): Esther M + Vicky', () => {
-            // March 11, 2026 = Wed, week 11 (odd) -> weekdayFocus = ESTHER_VICKY
+        it('Wednesday (odd week): Esther M + Vicky (Mar libra)', () => {
             const wednesday = new Date(2026, 2, 11);
             expect(isEvenWeek(wednesday)).toBe(false);
 
@@ -313,22 +315,29 @@ describe('getStoreShifts - Castralvo', () => {
             expect(names).not.toContain('MAR');
         });
 
-        it('Friday: Mar + Esther M + Vicky (reinforcement)', () => {
+        it('Friday (even week): Mar + Vicky (Esther M libra)', () => {
             const friday = new Date(2026, 2, 6);
             const shifts = getStoreShifts(castralvo, friday, cvEmployees(), noHolidays);
 
             const names = shiftNames(shifts);
             expect(names).toContain('MAR');
+            expect(names).toContain('VICKY');
+            expect(names).not.toContain('ESTHER M');
+        });
+
+        it('Friday (odd week): Esther M + Vicky (Mar libra)', () => {
+            const friday = new Date(2026, 2, 13);
+            const shifts = getStoreShifts(castralvo, friday, cvEmployees(), noHolidays);
+
+            const names = shiftNames(shifts);
             expect(names).toContain('ESTHER M');
             expect(names).toContain('VICKY');
-
-            const vicky = shifts.find(s => s.emp === 'VICKY')!;
-            expect(vicky.type).toBe('reinforcement');
+            expect(names).not.toContain('MAR');
         });
     });
 
     describe('Weekend alternation', () => {
-        it('even week Saturday: Esther M + Vicky (with buffer)', () => {
+        it('even week Saturday: Esther M + Jorge + Vicky refuerzo', () => {
             // March 7, 2026 = Saturday, week 10 (even)
             const saturday = new Date(2026, 2, 7);
             expect(isEvenWeek(saturday)).toBe(true);
@@ -336,13 +345,15 @@ describe('getStoreShifts - Castralvo', () => {
             const shifts = getStoreShifts(castralvo, saturday, cvEmployees(), noHolidays);
             const names = shiftNames(shifts);
             expect(names).toContain('ESTHER M');
-            expect(names).toContain('VICKY');
+            expect(names).toContain('JORGE'); // Jorge cubre el sábado siempre (7.5h)
+            expect(names).toContain('VICKY'); // Vicky refuerzo 4h sábado par
             expect(names).not.toContain('MAR');
-            expect(names).not.toContain('JORGE');
+
+            const jorge = shifts.find(s => s.emp === 'JORGE')!;
+            expect(jorge.time).toBe('07:00 - 14:30'); // 7.5h exactos = contrato
         });
 
-        it('odd week Saturday: Mar + Jorge (with buffer)', () => {
-            // March 14, 2026 = Saturday, week 11 (odd)
+        it('odd week Saturday: Mar + Jorge', () => {
             const saturday = new Date(2026, 2, 14);
             expect(isEvenWeek(saturday)).toBe(false);
 
@@ -351,31 +362,31 @@ describe('getStoreShifts - Castralvo', () => {
             expect(names).toContain('MAR');
             expect(names).toContain('JORGE');
             expect(names).not.toContain('ESTHER M');
-            expect(names).not.toContain('VICKY');
         });
 
-        it('even week Sunday: Esther M (06:30-14:30) + Vicky (07:30-15:00)', () => {
+        it('even week Sunday: Esther M sola (jornada 8h exactos)', () => {
             const sunday = new Date(2026, 2, 8); // week 10, even
             const shifts = getStoreShifts(castralvo, sunday, cvEmployees(), noHolidays);
 
             const esther = shifts.find(s => s.emp === 'ESTHER M')!;
-            const vicky = shifts.find(s => s.emp === 'VICKY')!;
             expect(esther).toBeDefined();
-            expect(vicky).toBeDefined();
-            // Sunday times: Esther 06:30-14:30 + buffer -> 06:15-14:45
-            expect(esther.time).toBe('06:15 - 14:45');
-            // Vicky Sunday: 07:30-15:00 + buffer -> 07:15-15:15
-            expect(vicky.time).toBe('07:15 - 15:15');
+            expect(esther.time).toBe('06:30 - 14:30');
+            // Domingo par: solo Esther (Vicky descansa, Jorge trabaja solo los sábados)
+            expect(shiftNames(shifts)).not.toContain('VICKY');
+            expect(shiftNames(shifts)).not.toContain('JORGE');
         });
 
-        it('odd week Sunday: Mar (06:30-14:30) + Jorge (07:30-15:00)', () => {
+        it('odd week Sunday: Mar + Vicky refuerzo (5h)', () => {
             const sunday = new Date(2026, 2, 15); // week 11, odd
             const shifts = getStoreShifts(castralvo, sunday, cvEmployees(), noHolidays);
 
             const mar = shifts.find(s => s.emp === 'MAR')!;
-            const jorge = shifts.find(s => s.emp === 'JORGE')!;
+            const vicky = shifts.find(s => s.emp === 'VICKY')!;
             expect(mar).toBeDefined();
-            expect(jorge).toBeDefined();
+            expect(mar.time).toBe('06:30 - 14:30');
+            expect(vicky).toBeDefined();
+            expect(vicky.type).toBe('reinforcement');
+            expect(vicky.time).toBe('09:30 - 14:30');
         });
     });
 
@@ -390,7 +401,7 @@ describe('getStoreShifts - Castralvo', () => {
             expect(mar.type).toBe('holiday_shift');
         });
 
-        it('odd week (ESTHER_VICKY focus) holiday: Esther M holiday_shift + Vicky reinforcement', () => {
+        it('odd week holiday: Esther M holiday_shift + Vicky reinforcement', () => {
             const holidays: Holiday[] = [{ id: 2, date: '2026-03-09', name: 'Fiesta' }];
             const monday = new Date(2026, 2, 9); // odd week
 
@@ -454,34 +465,51 @@ describe('getStoreShifts - San Juan', () => {
     });
 
     describe('Weekday pattern (even/odd weeks)', () => {
-        it('even week weekday: Angela works M-F, Isabel reinforcement on Wed', () => {
-            // Even week = Isabel on weekend, Angela full weekdays
+        it('even week Monday: Angela sola (Isabel refuerza martes)', () => {
             const monday = new Date(2026, 2, 2); // Mon, week 10 even
             const shifts = getStoreShifts(sanJuan, monday, sjEmployees(), noHolidays);
 
             expect(shiftNames(shifts)).toContain('ANGELA');
-            // Isabel does NOT appear on non-Wednesday even-week days
             expect(shiftNames(shifts)).not.toContain('ISABEL');
         });
 
-        it('even week Wednesday: Angela + Isabel (reinforcement)', () => {
+        it('even week Tuesday: Angela + Isabel (refuerzo 4.5h)', () => {
+            const tuesday = new Date(2026, 2, 3);
+            const shifts = getStoreShifts(sanJuan, tuesday, sjEmployees(), noHolidays);
+
+            expect(shiftNames(shifts)).toContain('ANGELA');
+            expect(shiftNames(shifts)).toContain('ISABEL');
+            const isabel = shifts.find(s => s.emp === 'ISABEL')!;
+            expect(isabel.type).toBe('reinforcement');
+        });
+
+        it('even week Wednesday: solo Angela', () => {
             const wednesday = new Date(2026, 2, 4); // Wed, week 10 even
             const shifts = getStoreShifts(sanJuan, wednesday, sjEmployees(), noHolidays);
 
             expect(shiftNames(shifts)).toContain('ANGELA');
-            expect(shiftNames(shifts)).toContain('ISABEL');
-
-            const isabel = shifts.find(s => s.emp === 'ISABEL')!;
-            expect(isabel.type).toBe('reinforcement');
-            expect(isabel.time).toBe('09:30 - 13:30');
+            expect(shiftNames(shifts)).not.toContain('ISABEL');
         });
 
-        it('odd week: Angela on M/W/F, Isabel on T/Th', () => {
-            // Odd week = Angela on weekend, split weekdays
+        it('even week Friday: Isabel titular + Angela refuerzo', () => {
+            const friday = new Date(2026, 2, 6);
+            const shifts = getStoreShifts(sanJuan, friday, sjEmployees(), noHolidays);
+
+            expect(shiftNames(shifts)).toContain('ISABEL');
+            const isabel = shifts.find(s => s.emp === 'ISABEL')!;
+            expect(isabel.type).toBe('standard');
+            const angela = shifts.find(s => s.emp === 'ANGELA')!;
+            expect(angela).toBeDefined();
+            expect(angela.type).toBe('reinforcement');
+        });
+
+        it('odd week Monday: Isabel titular + Angela refuerzo (5.5h)', () => {
             const monday = new Date(2026, 2, 9); // Mon, week 11 odd
             const shifts = getStoreShifts(sanJuan, monday, sjEmployees(), noHolidays);
+            expect(shiftNames(shifts)).toContain('ISABEL');
             expect(shiftNames(shifts)).toContain('ANGELA');
-            expect(shiftNames(shifts)).not.toContain('ISABEL');
+            const angela = shifts.find(s => s.emp === 'ANGELA')!;
+            expect(angela.type).toBe('reinforcement');
 
             const tuesday = new Date(2026, 2, 10); // Tue, week 11 odd
             const shiftsT = getStoreShifts(sanJuan, tuesday, sjEmployees(), noHolidays);
@@ -489,23 +517,21 @@ describe('getStoreShifts - San Juan', () => {
             expect(shiftNames(shiftsT)).not.toContain('ANGELA');
         });
 
-        it('odd week Friday: Angela + Isabel reinforcement', () => {
+        it('odd week Friday: Angela sola (Isabel libra viernes ODD)', () => {
             const friday = new Date(2026, 2, 13); // Fri, week 11 odd
             const shifts = getStoreShifts(sanJuan, friday, sjEmployees(), noHolidays);
 
             expect(shiftNames(shifts)).toContain('ANGELA');
-            const isabel = shifts.find(s => s.emp === 'ISABEL')!;
-            expect(isabel).toBeDefined();
-            expect(isabel.type).toBe('reinforcement');
+            expect(shiftNames(shifts)).not.toContain('ISABEL');
         });
 
-        it('weekday standard shifts have 15m buffer applied', () => {
+        it('weekday standard shifts sin buffer (horario exacto de apertura)', () => {
             const monday = new Date(2026, 2, 2); // even week
             const shifts = getStoreShifts(sanJuan, monday, sjEmployees(), noHolidays);
 
             const angela = shifts.find(s => s.emp === 'ANGELA')!;
-            // Weekday openClose: 09:00 - 15:15 with buffer -> 08:45 - 15:30
-            expect(angela.time).toBe('08:45 - 15:30');
+            // Sin buffer para cuadrar horas de contrato exactas
+            expect(angela.time).toBe('09:00 - 15:15');
             expect(angela.type).toBe('standard');
         });
     });
